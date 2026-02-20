@@ -103,59 +103,89 @@ plist = bm.trace(turdsize=2, alphamax=1.0, opttolerance=5.0)
 - InkscapeWrapper for SVG rasterization
 
 #### 4. ParameterGrid
-**Responsibility**: Generate parameter combinations to test
+**Responsibility**: Generate optimal parameters using sequential binary search
+
+**Key Insight:** We don't need to search a 3D parameter space! Each parameter affects different aspects:
+- **Turdsize** → Noise removal (set once based on image analysis, not searched)
+- **Threshold** → Gross shape boundaries (binary search FIRST - coarse adjustment)
+- **Alphamax** → Curve smoothness (binary search SECOND - fine adjustment)  
+- **Opttolerance** → Path joining (fixed at max, not searched)
+
+These are mostly **separable** - changing one doesn't require re-optimizing the others!
 
 **Key Methods**:
-- `generate_grid(quality_level, image_analysis)` - Create parameter combinations
-- `estimate_runtime(num_combinations)` - Predict processing time
-- `analyze_image(image_path)` - Determine background type and noise level
+- `determine_turdsize(noise_level)` - Set speckle removal based on image analysis
+- `binary_search_threshold(initial, step, tolerance)` - Find optimal threshold value
+- `binary_search_smooth(initial, step, tolerance, fixed_threshold)` - Fine-tune smoothness
+- `optimize_parameters(image_analysis)` - Main orchestrator
 
-**Quality Levels**:
-- **fast**: ~12-15 combinations (2-3 min)
-- **balanced**: ~20-30 combinations (3-5 min) 
-- **thorough**: ~40-60 combinations (5-10 min)
-
-**Image Analysis** (determines parameter ranges):
-- **Background detection**: Mean brightness to determine if light/dark background
-- **Noise detection**: Uses noise.py algorithm (Laplacian variance + residual std dev)
-  - Low noise (<50): Keep turdsize minimal
-  - Moderate (50-150): Test wider turdsize range
-  - High (>150): Use aggressive turdsize values
-
-**Parameter Ranges** (for line art, single-pass grid):
+**Sequential Optimization Workflow:**
 
 ```python
-# Blacklevel (threshold) - THE MOST IMPORTANT PARAMETER
-# Direction depends on background:
-LIGHT_BACKGROUND = {  # White bg, black lines
-    'blacklevel': [0.10, 0.25, 0.35, 0.45, 0.55, 0.65],  # Bias toward lower
-}
-DARK_BACKGROUND = {  # Dark bg, light lines  
-    'blacklevel': [0.35, 0.45, 0.55, 0.70, 0.85, 1.00],  # Bias toward higher
-}
+# Step 1: Set turdsize (not optimized, just chosen)
+if noise_level == "low":
+    turdsize = 2       # Minimal - avoid eating letter holes
+elif noise_level == "moderate":
+    turdsize = 10      # Moderate removal
+else:  # high
+    turdsize = 50      # Aggressive despeckling
 
-# Turdsize (speckles) - NOISE DEPENDENT
-NOISE_LOW = {
-    'turdsize': [0, 1, 2],  # Minimal - avoid eating letter holes
-}
-NOISE_MODERATE = {
-    'turdsize': [0, 2, 5, 10],
-}
-NOISE_HIGH = {
-    'turdsize': [2, 10, 50, 100],  # Aggressive removal
-}
+# Step 2: Binary search for threshold (8-10 iterations)
+# This is the COARSE adjustment - gets the shapes right
+best_threshold = binary_search(
+    initial=0.45 if bg_type == "light" else 0.70,
+    step=0.20,
+    min_improvement=0.001,  # Stop when gains are tiny
+)
 
-# Alphamax (smooth corners) - FINE TUNING
-# Max value is 1.34 (Potrace limitation)
-SMOOTH_CORNERS = {
-    'alphamax': [0.8, 1.0, 1.2],  # Stay close to default (1.0)
-}
+# Step 3: Binary search for smooth (6-8 iterations)  
+# This is the FINE adjustment - tweaks the details
+best_smooth = binary_search(
+    initial=1.0,
+    step=0.3,
+    min_improvement=0.001,
+)
+```
 
-# Opttolerance (optimize) - LOCKED AT MAX
-# Always use 5.0 for maximum path reduction
-OPTIMIZE = {
-    'opttolerance': [5.0],  # Fixed - "optimize the optimizing" if needed later
-}
+**Binary Search Algorithm:**
+```
+1. Start at initial value, score it
+2. Try both directions (value ± step)
+3. If either improved → move that direction, repeat
+4. If neither improved → we're at a local peak, halve step size
+5. Continue until step size < tolerance OR improvement < threshold
+6. Return best value found
+```
+
+**Why This is Smarter Than Grid Search:**
+- **Adaptive precision** - automatically zooms in on optimal values
+- **Fewer evaluations** - ~14-18 total vs 20-30 for grid
+- **Better results** - can find values between grid points
+- **Separable optimization** - each parameter optimized independently
+
+**Total Cost:**
+- Turdsize: 0 iterations (just set it)
+- Threshold: ~8-10 iterations (binary search)
+- Smooth: ~6-8 iterations (binary search)
+- **Total: 14-18 SVG generations** (vs 20-30 for grid search)
+
+**Parameter Ranges** (used as search bounds):
+
+```python
+# Threshold bounds (direction depends on background)
+THRESHOLD_BOUNDS_LIGHT_BG = (0.10, 0.70)  # White bg, black lines
+THRESHOLD_BOUNDS_DARK_BG = (0.30, 1.00)   # Dark bg, light lines
+
+# Smooth bounds (always same)
+SMOOTH_BOUNDS = (0.5, 1.34)  # Potrace max is 1.34
+
+# Turdsize options (noise-dependent, not searched)
+TURDSIZE_LOW_NOISE = 2
+TURDSIZE_MODERATE_NOISE = 10  
+TURDSIZE_HIGH_NOISE = 50
+
+# Opttolerance - locked
+OPTTOLERANCE_VALUE = 5.0
 ```
 
 #### 5. VisualLogger
@@ -250,36 +280,37 @@ LABEL_FONT_SIZE = 14
    - Load image with Pillow
    - Detect background type (light vs dark via mean brightness)
    - Calculate noise level using noise.py algorithm
-   - Determine if invert flag should be suggested
+   - Determine initial parameter hints
 4. **Try defaults first (quick test)**
-   - Load bitmap with default blacklevel using potracer
+   - Set turdsize based on noise analysis
+   - Load bitmap with default blacklevel (0.45) using potracer
    - Trace with default parameters
    - Convert path list to SVG string
-   - Rasterize result and calculate SSIM
+   - Rasterize result and calculate SSIM (using binary comparison!)
    - If SSIM > threshold (e.g., 0.95), we're done! Skip optimization.
-5. **Generate parameter grid** (if needed)
-   - Based on quality level (fast/balanced/thorough)
-   - Adjust blacklevel range based on background analysis
-   - Adjust turdsize range based on noise analysis
-   - Include default params as baseline
-6. **Grid search loop**
-   - For each parameter combination:
-     - Show progress (X/Y combinations, current params, best so far)
-     - Create Bitmap object with current blacklevel
-     - Call bitmap.trace() with current params
-     - Convert path list to SVG
-     - Call ImageComparer.compare()
-     - Track best score and parameters
-     - Update progress display
-   - Use temp directory for intermediate SVGs
-7. **Generate outputs**
+5. **Sequential parameter optimization** (if defaults not good enough)
+   - **Phase 1: Coarse adjustment (threshold)**
+     - Binary search for optimal blacklevel value
+     - Start from image-appropriate initial value (0.45 for light bg, 0.70 for dark)
+     - Each iteration: test value, try both directions, move toward better score
+     - Stop when improvements become negligible (~8-10 iterations)
+     - Lock in best threshold
+   - **Phase 2: Fine adjustment (smooth)**
+     - Binary search for optimal alphamax value
+     - Keep threshold fixed at best value from Phase 1
+     - Start from 1.0, search range 0.5-1.34
+     - Refine curve smoothness (~6-8 iterations)
+     - Lock in best smooth value
+   - **Total: ~14-18 SVG generations** (adaptive, finds exact sweet spots)
+6. **Generate outputs**
    - Save best SVG to final output path
    - Create visual comparison sheet (if not disabled)
-   - Generate JSON log (if requested)
-8. **Display summary**
-   - Best parameters found
+   - Generate JSON log with final parameters (if requested)
+7. **Display summary**
+   - Best parameters found (threshold, smooth, turdsize)
    - Final SSIM score
    - Comparison vs defaults (if optimization ran)
+   - How many iterations each phase took
    - Output file locations
    - Total runtime
 

@@ -63,26 +63,32 @@ ALPHAMAX_RANGE = [0.8, 1.0, 1.2]
 OPTTOLERANCE_VALUE = 5.0
 
 # ============================================================================
-# Quality Level Presets
+# Binary Search Optimization Settings
 # ============================================================================
-# These control how many parameter combinations to test
-QUALITY_PRESETS = {
-    'fast': {
-        'blacklevel_samples': 3,  # Use every other value from range
-        'alphamax_samples': 1,    # Just use default
-        'estimated_time_min': 2,
-    },
-    'balanced': {
-        'blacklevel_samples': 5,  # Use most of range
-        'alphamax_samples': 3,    # Test all alphamax values
-        'estimated_time_min': 5,
-    },
-    'thorough': {
-        'blacklevel_samples': 6,  # Use entire range
-        'alphamax_samples': 3,    # Test all alphamax values
-        'estimated_time_min': 10,
-    },
-}
+# Threshold (blacklevel) binary search
+THRESHOLD_INITIAL_LIGHT_BG = 0.45  # Starting point for light backgrounds
+THRESHOLD_INITIAL_DARK_BG = 0.70   # Starting point for dark backgrounds
+THRESHOLD_STEP_INITIAL = 0.20      # Initial step size
+THRESHOLD_MIN_STEP = 0.02          # Stop when steps get this small
+THRESHOLD_MIN_IMPROVEMENT = 0.001  # Stop when SSIM gains are tiny
+
+# Smooth (alphamax) binary search  
+SMOOTH_INITIAL = 1.0               # Always start at default
+SMOOTH_STEP_INITIAL = 0.3          # Initial step size
+SMOOTH_MIN_STEP = 0.05             # Stop when steps get this small
+SMOOTH_MIN_IMPROVEMENT = 0.001     # Stop when SSIM gains are tiny
+
+# Search bounds
+THRESHOLD_BOUNDS_LIGHT_BG = (0.10, 0.70)
+THRESHOLD_BOUNDS_DARK_BG = (0.30, 1.00)
+SMOOTH_BOUNDS = (0.5, 1.34)  # Potrace's max smooth value is 1.34
+
+# ============================================================================
+# Turdsize (Speckles) Settings - Noise-Based Selection
+# ============================================================================
+TURDSIZE_LOW_NOISE = 2       # Clean images - minimal despeckle
+TURDSIZE_MODERATE_NOISE = 10  # Some noise - moderate despeckle
+TURDSIZE_HIGH_NOISE = 50      # Noisy images - aggressive despeckle
 
 # ============================================================================
 # Visual Logger Settings (for comparison sheet generation)
