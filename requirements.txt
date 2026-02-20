@@ -1,0 +1,16 @@
+# SVG Auto-Optimizer Dependencies
+
+# Core image processing
+Pillow>=10.0.0           # Image loading and manipulation
+potracer>=0.0.4          # Pure Python potrace implementation
+numpy>=1.24.0            # Array operations (required by scikit-image)
+
+# Image comparison and analysis
+scikit-image>=0.21.0     # SSIM calculation
+opencv-python>=4.8.0     # Noise analysis (cv2)
+
+# Console UI and logging
+rich>=13.0.0             # Beautiful console output and progress bars
+
+# Optional performance boost (uncomment if your platform supports it)
+# numba>=0.57.0          # JIT compiler for ~2x potracer speedup
