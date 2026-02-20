@@ -1,9 +1,11 @@
 # SVG Auto-Optimizer - Project Planning Document
 
 ## Project Overview
+
 A Python application that converts raster images (primarily line art and logos) to SVG format, automatically testing multiple parameter combinations to find the optimal conversion settings. Includes visual comparison logging to verify quality assessment.
 
 ## Core Objectives
+
 1. Convert raster images to SVG using Inkscape CLI
 2. Automatically optimize conversion parameters via grid search
 3. Score outputs by comparing rasterized SVG against original (SSIM)
@@ -11,6 +13,7 @@ A Python application that converts raster images (primarily line art and logos) 
 5. Provide clear, real-time console feedback during processing
 
 ## Target Use Cases (v1)
+
 - **Primary**: Black & white line art
 - **Secondary**: Minimal palette line art (2-5 colors)
 - **Purpose**: Generate clean SVGs for use in CAD tools like Fusion 360
@@ -19,7 +22,8 @@ A Python application that converts raster images (primarily line art and logos) 
 ## Technical Architecture
 
 ### Module Structure
-```
+
+```text
 svg_optimizer/
 ├── __init__.py
 ├── __main__.py              # CLI entry point
@@ -34,13 +38,16 @@ svg_optimizer/
 ### Core Components
 
 #### 1. PotraceTracer
+
 **Responsibility**: Wrapper around `potracer` Python library for bitmap tracing
 
 **Key Methods**:
+
 - `trace_bitmap(input_path, output_path, params)` - Trace bitmap to SVG using potracer
 - `load_and_prepare_bitmap(image_path, params)` - Load image, apply threshold/invert
 
 **Why potracer (pure Python) instead of C potrace or pypotrace?**
+
 - Inkscape's Trace Bitmap extension is not exposed via CLI (by design)
 - pypotrace requires complex Windows compilation (MinGW, manual library builds)
 - C potrace CLI requires binary distribution and subprocess management
@@ -51,6 +58,7 @@ svg_optimizer/
 - Optional numba JIT for 2x speedup if needed
 
 **Potrace Parameters** (maps to Inkscape GUI):
+
 - `blacklevel`: Threshold 0.0-1.0 (default 0.5) → **Inkscape's "Threshold"**
 - `turdsize`: Suppress speckles, integer pixels (default 2) → **Inkscape's "Speckles"**
 - `alphamax`: Corner threshold 0.0-1.34 (default 1.0) → **Inkscape's "Smooth corners"**
@@ -58,6 +66,7 @@ svg_optimizer/
 - `turnpolicy`: black|white|left|right|minority|majority|random (default minority)
 
 **Usage Pattern**:
+
 ```python
 from potracer import Bitmap
 import PIL.Image
@@ -72,9 +81,11 @@ plist = bm.trace(turdsize=2, alphamax=1.0, opttolerance=5.0)
 ```
 
 #### 2. InkscapeWrapper
+
 **Responsibility**: Manage Inkscape CLI for SVG rasterization only
 
 **Key Methods**:
+
 - `rasterize_svg(svg_path, output_path, width, height, dpi)` - Convert SVG to PNG
 - `validate_installation()` - Check Inkscape is available
 - `get_version()` - Get Inkscape version info
@@ -82,14 +93,17 @@ plist = bm.trace(turdsize=2, alphamax=1.0, opttolerance=5.0)
 **Inkscape Path**: `C:\Program Files\Inkscape\bin\inkscape.exe`
 
 #### 3. ImageComparer
+
 **Responsibility**: Score SVG quality against original image
 
 **Key Methods**:
+
 - `compare(original_path, svg_path)` - Returns similarity score (0.0-1.0)
 - `rasterize_for_comparison(svg_path, target_size)` - Prepare SVG for scoring using InkscapeWrapper
 - `calculate_ssim(img1, img2)` - Structural similarity computation
 
 **Scoring Strategy**:
+
 - Use SSIM (Structural Similarity Index) as primary metric
 - Rasterize SVG at original image dimensions using Inkscape
 - Convert both to grayscale for B&W art comparison
@@ -97,15 +111,18 @@ plist = bm.trace(turdsize=2, alphamax=1.0, opttolerance=5.0)
 - Downsample large images (>2000px) for faster comparison
 
 **Dependencies**:
+
 - `scikit-image` for SSIM calculation
 - `Pillow` for image loading/manipulation
 - `cv2` (OpenCV) for noise analysis
 - InkscapeWrapper for SVG rasterization
 
 #### 4. ParameterGrid
+
 **Responsibility**: Generate optimal parameters using sequential binary search
 
 **Key Insight:** We don't need to search a 3D parameter space! Each parameter affects different aspects:
+
 - **Turdsize** → Noise removal (set once based on image analysis, not searched)
 - **Threshold** → Gross shape boundaries (binary search FIRST - coarse adjustment)
 - **Alphamax** → Curve smoothness (binary search SECOND - fine adjustment)  
@@ -114,6 +131,7 @@ plist = bm.trace(turdsize=2, alphamax=1.0, opttolerance=5.0)
 These are mostly **separable** - changing one doesn't require re-optimizing the others!
 
 **Key Methods**:
+
 - `determine_turdsize(noise_level)` - Set speckle removal based on image analysis
 - `binary_search_threshold(initial, step, tolerance)` - Find optimal threshold value
 - `binary_search_smooth(initial, step, tolerance, fixed_threshold)` - Fine-tune smoothness
@@ -148,7 +166,8 @@ best_smooth = binary_search(
 ```
 
 **Binary Search Algorithm:**
-```
+
+```text
 1. Start at initial value, score it
 2. Try both directions (value ± step)
 3. If either improved → move that direction, repeat
@@ -158,12 +177,14 @@ best_smooth = binary_search(
 ```
 
 **Why This is Smarter Than Grid Search:**
+
 - **Adaptive precision** - automatically zooms in on optimal values
 - **Fewer evaluations** - ~14-18 total vs 20-30 for grid
 - **Better results** - can find values between grid points
 - **Separable optimization** - each parameter optimized independently
 
 **Total Cost:**
+
 - Turdsize: 0 iterations (just set it)
 - Threshold: ~8-10 iterations (binary search)
 - Smooth: ~6-8 iterations (binary search)
@@ -189,14 +210,17 @@ OPTTOLERANCE_VALUE = 5.0
 ```
 
 #### 5. VisualLogger
+
 **Responsibility**: Create comparison sheet showing all tested versions
 
 **Key Methods**:
+
 - `create_comparison_sheet(results, output_path)` - Generate final PNG
 - `render_thumbnail(image, score, params)` - Create labeled thumbnail
 - `layout_grid(thumbnails, columns)` - Arrange images in grid
 
 **Layout Design**:
+
 - Grid arrangement (auto-calculate columns based on count)
 - Original image in top-left with "ORIGINAL" label
 - Candidates sorted by score (best to worst)
@@ -210,10 +234,12 @@ OPTTOLERANCE_VALUE = 5.0
 **Output**: Single large PNG file with complete comparison
 
 #### 6. CLI Interface (\_\_main\_\_.py)
+
 **Responsibility**: User-facing command-line interface
 
 **Arguments**:
-```
+
+```text
 Required:
   input              Path to input image
 
@@ -228,6 +254,7 @@ Optional:
 ```
 
 **Console Output Requirements**:
+
 - Clear indication of current stage
 - Progress bar for grid search (with percentage and ETA)
 - Real-time updates on best score found so far
@@ -271,6 +298,7 @@ LABEL_FONT_SIZE = 14
 ## Workflow
 
 ### Main Execution Flow
+
 1. **Parse CLI arguments**
 2. **Validate inputs and dependencies**
    - Check input file exists
@@ -315,6 +343,7 @@ LABEL_FONT_SIZE = 14
    - Total runtime
 
 ### Error Handling
+
 - Graceful failure if Inkscape not found
 - Clear error messages for invalid inputs
 - Cleanup temporary files on failure
@@ -323,6 +352,7 @@ LABEL_FONT_SIZE = 14
 ## Dependencies
 
 ### Required Python Packages
+
 - Python 3.9+
 - `potracer` - Pure Python Potrace implementation for bitmap tracing
 - `Pillow` - Image manipulation and loading
@@ -332,18 +362,22 @@ LABEL_FONT_SIZE = 14
 - `numpy` - Array operations (via scikit-image and cv2)
 
 ### Optional Performance Boost
+
 - `numba` - JIT compiler for ~2x speedup on potracer (if platform supports it)
 
 ### External Binaries
+
 - **Inkscape** - SVG to PNG rasterization (already installed at `C:\Program Files\Inkscape\bin`)
 
 ### System Requirements
+
 - Windows (initial target, cross-platform later)
 - ~100MB free disk space for temp files during processing
 
 ## Development Phases
 
 ### Phase 1: Core Infrastructure & SSIM Testing
+
 - [ ] Project structure and config
 - [ ] PotraceWrapper with basic trace functionality
 - [ ] InkscapeWrapper for SVG rasterization
@@ -355,17 +389,20 @@ LABEL_FONT_SIZE = 14
 - [ ] Integrate noise detection from noise.py
 
 ### Phase 2: Optimization Engine
+
 - [ ] ImageComparer with SSIM scoring and image analysis
 - [ ] ParameterGrid implementation with noise/background detection
 - [ ] Grid search loop with progress display
 - [ ] Default-first quick test workflow
 
 ### Phase 3: Visual Output
+
 - [ ] VisualLogger thumbnail generation  
 - [ ] Grid layout system
 - [ ] Comparison sheet creation
 
 ### Phase 4: Polish
+
 - [ ] Error handling and edge cases
 - [ ] JSON logging
 - [ ] CLI help text and examples
@@ -373,6 +410,7 @@ LABEL_FONT_SIZE = 14
 - [ ] Performance optimization if needed
 
 ## Testing Strategy
+
 - **Unit tests**: Individual components with mock data
 - **Integration tests**: Full pipeline with sample images
 - **Test images**: Prepare 3-5 representative samples
@@ -382,6 +420,7 @@ LABEL_FONT_SIZE = 14
   - 4-color artwork
 
 ## Future Enhancements (Post-v1)
+
 - Auto-detect art type from image analysis
 - Additional scoring metrics (perceptual color difference)
 - Bayesian optimization for faster search
@@ -411,6 +450,7 @@ LABEL_FONT_SIZE = 14
    - First candidate in comparison sheet
 
 ## Notes
+
 - Focus on console output quality - users should always know what's happening
 - Keep temp files organized (use tempfile module)
 - Consider adding dry-run mode for testing parameter grids without actual conversion
