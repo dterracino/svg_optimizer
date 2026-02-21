@@ -222,12 +222,12 @@ def main():
         test_id = f"test_{evaluation_counter[0]:03d}"
         
         # Save SVG
-        svg_path = temp_dir / f"{test_id}.svg"
+        svg_path = temp_dir / f"{test_id}{config.DEFAULT_OUTPUT_SUFFIX}"
         svg_path.write_text(svg, encoding='utf-8')
         
         # Save parameters and score
         import json
-        params_path = temp_dir / f"{test_id}.params.json"
+        params_path = temp_dir / f"{test_id}{config.DEFAULT_JSON_LOG_SUFFIX}"
         params_path.write_text(json.dumps({
             'params': params,
             'score': score,
@@ -273,11 +273,21 @@ def main():
         
         # Load all the test results from temp folder
         entries = []
-        for params_file in sorted(temp_dir.glob("test_*.params.json")):
+        search_pattern = f"test_*{config.DEFAULT_JSON_LOG_SUFFIX}"
+        log_debug(f"Searching for: {temp_dir / search_pattern}")
+        
+        matching_files = list(temp_dir.glob(search_pattern))
+        log_debug(f"Found {len(matching_files)} matching files")
+        
+        for params_file in sorted(matching_files):
             with open(params_file) as f:
                 data = json.load(f)
             
-            svg_file = params_file.with_suffix('.svg')
+            # Get the test_id from the params file (e.g., test_001.params.json -> test_001)
+            # Remove the .params.json suffix to get just test_XXX
+            test_base = params_file.name.replace(config.DEFAULT_JSON_LOG_SUFFIX, '')
+            svg_file = params_file.parent / f"{test_base}{config.DEFAULT_OUTPUT_SUFFIX}"
+            
             if svg_file.exists():
                 svg_content = svg_file.read_text(encoding='utf-8')
                 

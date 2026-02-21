@@ -15,7 +15,7 @@ INKSCAPE_PATH = r"C:\Program Files\Inkscape\bin\inkscape.exe"
 # ============================================================================
 DEFAULT_OUTPUT_SUFFIX = ".svg"
 DEFAULT_COMPARISON_SUFFIX = "_comparison.png"
-DEFAULT_JSON_LOG_SUFFIX = "_params.json"
+DEFAULT_JSON_LOG_SUFFIX = ".params.json"  # For parameter logging (dot not underscore!)
 
 # ============================================================================
 # Potrace Parameter Defaults (matches Inkscape GUI defaults)
@@ -24,8 +24,8 @@ POTRACE_DEFAULTS = {
     'blacklevel': 0.45,      # Threshold (0.0-1.0)
     'turdsize': 2,           # Speckle suppression (pixels)
     'alphamax': 1.0,         # Corner smoothness (0.0-1.34)
-    'opttolerance': 5.0,     # Curve optimization (0.0-5.0) - we max this out
-    'turnpolicy': 'minority', # Ambiguity resolution
+    'opttolerance': 0.2,     # Curve optimization (Inkscape default)
+    'turnpolicy': 4,         # Ambiguity resolution (4 = minority)
 }
 
 # ============================================================================
@@ -59,9 +59,6 @@ TURDSIZE_HIGH_NOISE = [2, 10, 50, 100]   # Aggressive removal
 # Alphamax (smooth corners) - stay close to default
 ALPHAMAX_RANGE = [0.8, 1.0, 1.2]
 
-# Opttolerance - locked at max for now
-OPTTOLERANCE_VALUE = 5.0
-
 # ============================================================================
 # Binary Search Optimization Settings
 # ============================================================================
@@ -69,13 +66,13 @@ OPTTOLERANCE_VALUE = 5.0
 THRESHOLD_INITIAL_LIGHT_BG = 0.45  # Starting point for light backgrounds
 THRESHOLD_INITIAL_DARK_BG = 0.70   # Starting point for dark backgrounds
 THRESHOLD_STEP_INITIAL = 0.20      # Initial step size
-THRESHOLD_MIN_STEP = 0.02          # Stop when steps get this small
+THRESHOLD_MIN_STEP = 0.10          # TESTING: Was 0.02 - converges faster
 THRESHOLD_MIN_IMPROVEMENT = 0.001  # Stop when SSIM gains are tiny
 
 # Smooth (alphamax) binary search  
 SMOOTH_INITIAL = 1.0               # Always start at default
 SMOOTH_STEP_INITIAL = 0.3          # Initial step size
-SMOOTH_MIN_STEP = 0.05             # Stop when steps get this small
+SMOOTH_MIN_STEP = 0.15             # TESTING: Was 0.05 - converges faster
 SMOOTH_MIN_IMPROVEMENT = 0.001     # Stop when SSIM gains are tiny
 
 # Search bounds
@@ -112,5 +109,5 @@ LOG_LEVEL = "INFO"  # Can be DEBUG, INFO, WARNING, ERROR, CRITICAL
 # Temporary File Management
 # ============================================================================
 TEMP_DIR_PREFIX = "svg_optimizer_"
-CLEANUP_TEMP_ON_SUCCESS = False
+CLEANUP_TEMP_ON_SUCCESS = False  # Keep for debugging comparison sheet issue
 CLEANUP_TEMP_ON_ERROR = False  # Keep temps for debugging on failure
