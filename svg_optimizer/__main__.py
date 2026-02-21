@@ -11,16 +11,18 @@ Usage:
     python -m svg_optimizer input.png --skip-optimization
 """
 import sys
-import argparse
 from pathlib import Path
 from typing import Optional
 import time
+
+from PIL import Image
 
 # Import all our beautiful modules!
 from svg_optimizer import (
     log_info, log_error, log_success, log_section, log_warning, log_debug
 )
 from svg_optimizer import config
+from svg_optimizer.cli import parse_arguments
 from svg_optimizer.utils import (
     validate_input_file, validate_output_path, setup_logging
 )
@@ -29,92 +31,6 @@ from svg_optimizer.potrace_tracer import PotraceTracer
 from svg_optimizer.inkscape_wrapper import InkscapeWrapper
 from svg_optimizer.image_comparer import ImageComparer
 from svg_optimizer.parameter_optimizer import ParameterOptimizer
-
-
-# ============================================================================
-# CLI Argument Parsing
-# ============================================================================
-
-def parse_arguments():
-    """Parse command-line arguments with helpful descriptions."""
-    parser = argparse.ArgumentParser(
-        description="Automatically optimize bitmap-to-SVG conversion parameters",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Basic usage - optimize and save as input.svg
-  %(prog)s logo.png
-  
-  # Specify custom output location
-  %(prog)s logo.png --output my_logo.svg
-  
-  # Skip optimization, just use defaults
-  %(prog)s logo.png --skip-optimization
-  
-  # Save comparison sheet to custom location
-  %(prog)s logo.png --comparison logo_comparison.png
-  
-  # Skip the comparison sheet entirely
-  %(prog)s logo.png --no-comparison
-  
-  # Verbose debug output
-  %(prog)s logo.png --verbose
-        """
-    )
-    
-    # Required arguments
-    parser.add_argument(
-        'input',
-        type=Path,
-        help='Input raster image (PNG, JPG, etc.)'
-    )
-    
-    # Output options
-    parser.add_argument(
-        '-o', '--output',
-        type=Path,
-        help='Output SVG file path (default: input filename with .svg extension)'
-    )
-    
-    parser.add_argument(
-        '-c', '--comparison',
-        type=Path,
-        help='Comparison sheet PNG path (default: input_comparison.png)'
-    )
-    
-    parser.add_argument(
-        '--no-comparison',
-        action='store_true',
-        help='Skip generating the visual comparison sheet'
-    )
-    
-    # Optimization control
-    parser.add_argument(
-        '--skip-optimization',
-        action='store_true',
-        help='Skip parameter optimization, just use defaults (fast!)'
-    )
-    
-    parser.add_argument(
-        '--threshold',
-        type=float,
-        help='Override: Set specific threshold value (0.0-1.0)'
-    )
-    
-    # Logging options
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Enable verbose debug output'
-    )
-    
-    parser.add_argument(
-        '--log-file',
-        type=Path,
-        help='Custom log file path (default: svg_optimizer.log)'
-    )
-    
-    return parser.parse_args()
 
 
 # ============================================================================
@@ -155,10 +71,8 @@ def main():
     log_info(f"Output: {output_svg}")
     
     # Comparison sheet path
-    if args.no_comparison:
-        comparison_path = None
-        log_info("Comparison sheet: [disabled]")
-    else:
+    comparison_path = None
+    if not args.no_comparison:
         if args.comparison:
             comparison_path = args.comparison
         else:
@@ -167,6 +81,8 @@ def main():
                 args.input.stem + config.DEFAULT_COMPARISON_SUFFIX.replace('.png', '')
             ).with_suffix('.png')
         log_info(f"Comparison sheet: {comparison_path}")
+    else:
+        log_info("Comparison sheet: [disabled]")
     
     # ========================================================================
     # Step 2: Analyze Image
@@ -242,6 +158,8 @@ def main():
     log_info(f"Default SSIM score: {default_score:.4f}")
     
     # Check if defaults are good enough
+    temp_dir = None  # Initialize temp_dir in case we skip optimization
+    
     if default_score >= config.SSIM_GOOD_ENOUGH_THRESHOLD or args.skip_optimization:
         if default_score >= config.SSIM_GOOD_ENOUGH_THRESHOLD:
             log_success(f"Score {default_score:.4f} exceeds threshold "
@@ -270,6 +188,13 @@ def main():
                 f"({config.SSIM_GOOD_ENOUGH_THRESHOLD:.2f})")
     log_info("Starting parameter optimization...")
     
+    # Create temp directory for saving test results (for VisualLogger later)
+    import tempfile
+    temp_dir = Path(tempfile.mkdtemp(prefix=config.TEMP_DIR_PREFIX))
+    log_debug(f"Created temp directory: {temp_dir}")
+    
+    evaluation_counter = [0]  # Use list so we can modify in closure
+    
     # Create score function for optimizer
     # This is a closure that captures the necessary context
     def score_params(params: dict) -> float:
@@ -287,6 +212,23 @@ def main():
         
         with ImageComparer(inkscape) as comparer:
             score = comparer.compare_svg_string_to_original(args.input, svg)
+        
+        # Save this test to temp folder for VisualLogger!
+        evaluation_counter[0] += 1
+        test_id = f"test_{evaluation_counter[0]:03d}"
+        
+        # Save SVG
+        svg_path = temp_dir / f"{test_id}.svg"
+        svg_path.write_text(svg, encoding='utf-8')
+        
+        # Save parameters and score
+        import json
+        params_path = temp_dir / f"{test_id}.params.json"
+        params_path.write_text(json.dumps({
+            'params': params,
+            'score': score,
+            'test_id': test_id
+        }, indent=2), encoding='utf-8')
         
         return score
     
@@ -314,7 +256,64 @@ def main():
         return 1
     
     # ========================================================================
-    # Step 7: Summary
+    # Step 7: Generate Comparison Sheet (if requested)
+    # ========================================================================
+    
+    if comparison_path and temp_dir.exists():
+        log_section("Generating Comparison Sheet")
+        
+        from svg_optimizer.visual_logger import VisualLogger, ComparisonEntry
+        import json
+        
+        # Load all the test results from temp folder
+        entries = []
+        for params_file in sorted(temp_dir.glob("test_*.params.json")):
+            with open(params_file) as f:
+                data = json.load(f)
+            
+            svg_file = params_file.with_suffix('.svg')
+            if svg_file.exists():
+                svg_content = svg_file.read_text(encoding='utf-8')
+                
+                # Mark the winner (best score)
+                is_winner = abs(data['score'] - result.best_score) < 0.0001
+                
+                entry = ComparisonEntry(
+                    svg_content=svg_content,
+                    params=data['params'],
+                    score=data['score'],
+                    is_winner=is_winner
+                )
+                entries.append(entry)
+        
+        if entries:
+            logger = VisualLogger(inkscape)
+            with Image.open(args.input) as img:
+                orig_width = img.width
+            
+            success = logger.create_comparison_sheet(
+                entries,
+                comparison_path,
+                args.input,
+                target_width=orig_width
+            )
+            
+            if success:
+                log_success(f"Comparison sheet: {comparison_path}")
+        else:
+            log_warning("No test results found, skipping comparison sheet")
+    
+    # Cleanup temp directory
+    if temp_dir and temp_dir.exists():
+        if config.CLEANUP_TEMP_ON_SUCCESS:
+            import shutil
+            shutil.rmtree(temp_dir)
+            log_debug(f"Cleaned up temp directory: {temp_dir}")
+        else:
+            log_info(f"Temp files kept at: {temp_dir}")
+    
+    # ========================================================================
+    # Step 8: Summary
     # ========================================================================
     
     elapsed = time.time() - start_time
