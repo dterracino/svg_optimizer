@@ -40,6 +40,9 @@ def paths_to_svg(paths, width: int, height: int) -> str:
     Potracer returns a Path object that is iterable, containing Curve objects.
     Each Curve has segments which can be either BezierSegment or CornerSegment.
     
+    All curves are combined into a SINGLE <path> element, with each curve
+    being a separate sub-path (closed with Z).
+    
     Args:
         paths: Path object from bitmap.trace()
         width: Image width (for viewBox)
@@ -58,10 +61,11 @@ def paths_to_svg(paths, width: int, height: int) -> str:
               f'viewBox="0 0 {width} {height}" '
               f'xmlns="http://www.w3.org/2000/svg" version="1.1">\n')
     
-    # Each curve in the path becomes a <path> element
+    # ONE path element containing ALL curves
+    svg.write('<path d="')
+    
+    # Each curve becomes a sub-path within this single path element
     for curve in paths:
-        svg.write('<path d="')
-        
         # Start at the curve's start point
         start = curve.start_point
         svg.write(f'M{start.x:.2f},{start.y:.2f} ')
@@ -78,9 +82,11 @@ def paths_to_svg(paths, width: int, height: int) -> str:
                          f'{segment.c2.x:.2f},{segment.c2.y:.2f} '
                          f'{segment.end_point.x:.2f},{segment.end_point.y:.2f} ')
         
-        # Close the path
-        svg.write('Z" fill="black" stroke="none"/>\n')
+        # Close this sub-path
+        svg.write('Z ')
     
+    # Close the single path element
+    svg.write('" fill="black" stroke="none"/>\n')
     svg.write('</svg>\n')
     
     return svg.getvalue()

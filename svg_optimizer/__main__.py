@@ -191,7 +191,11 @@ def main():
     # Create temp directory for saving test results (for VisualLogger later)
     import tempfile
     temp_dir = Path(tempfile.mkdtemp(prefix=config.TEMP_DIR_PREFIX))
-    log_debug(f"Created temp directory: {temp_dir}")
+    log_info(f"Created temp directory: {temp_dir}")
+    
+    # Create ImageComparer that uses our temp directory (don't let it create its own!)
+    comparer = ImageComparer(inkscape)
+    comparer._temp_dir = temp_dir  # Share the temp directory
     
     evaluation_counter = [0]  # Use list so we can modify in closure
     
@@ -210,8 +214,8 @@ def main():
         if svg is None:
             return 0.0
         
-        with ImageComparer(inkscape) as comparer:
-            score = comparer.compare_svg_string_to_original(args.input, svg)
+        # Use the comparer directly (NOT with 'with' statement - we'll clean up manually later)
+        score = comparer.compare_svg_string_to_original(args.input, svg)
         
         # Save this test to temp folder for VisualLogger!
         evaluation_counter[0] += 1
@@ -229,6 +233,8 @@ def main():
             'score': score,
             'test_id': test_id
         }, indent=2), encoding='utf-8')
+        
+        log_debug(f"Saved {test_id}: score={score:.4f}, threshold={params['blacklevel']:.3f}, smooth={params['alphamax']:.2f}")
         
         return score
     
@@ -302,6 +308,10 @@ def main():
                 log_success(f"Comparison sheet: {comparison_path}")
         else:
             log_warning("No test results found, skipping comparison sheet")
+    
+    # Cleanup comparer (but don't delete temp_dir yet - we still need it!)
+    if 'comparer' in locals():
+        comparer._temp_dir = None  # Prevent it from deleting our temp_dir
     
     # Cleanup temp directory
     if temp_dir and temp_dir.exists():

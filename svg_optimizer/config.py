@@ -112,5 +112,5 @@ LOG_LEVEL = "INFO"  # Can be DEBUG, INFO, WARNING, ERROR, CRITICAL
 # Temporary File Management
 # ============================================================================
 TEMP_DIR_PREFIX = "svg_optimizer_"
-CLEANUP_TEMP_ON_SUCCESS = True
+CLEANUP_TEMP_ON_SUCCESS = False
 CLEANUP_TEMP_ON_ERROR = False  # Keep temps for debugging on failure

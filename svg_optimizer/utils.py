@@ -44,7 +44,7 @@ def setup_logging(log_file: Optional[Path] = None, verbose: bool = False):
         format=config.LOG_FORMAT,
         datefmt=config.LOG_DATE_FORMAT,
         handlers=[
-            logging.FileHandler(log_file, mode='a'),
+            logging.FileHandler(log_file, mode='a', encoding='utf-8'),  # UTF-8 for Unicode arrows
             # Don't add StreamHandler - we use Rich for console output
         ]
     )

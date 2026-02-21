@@ -25,56 +25,64 @@ def compute_noise_metrics(image: np.ndarray) -> Dict[str, float]:
     """
     Compute noise-related metrics for a grayscale image.
     
-    Uses two complementary approaches:
-    1. Laplacian variance - detects high-frequency content (edges, noise, texture)
-    2. Residual std dev - measures what's left after blurring (the "junk")
+    For line art (high contrast images), we primarily use residual analysis
+    since Laplacian detects edges (which are good!) not noise (which is bad!).
     
     Args:
         image: Grayscale image as numpy array (uint8)
         
     Returns:
         Dict with keys:
-            - laplacian_variance: High-frequency content level
+            - laplacian_variance: High-frequency content level (for reference)
             - residual_std: Noise residual standard deviation  
-            - noise_score: Combined weighted score (70% lap + 30% residual)
+            - noise_score: Residual std (Laplacian ignored for line art)
     """
     # Ensure float for precision
     img = image.astype(np.float32)
     
     # 1) Laplacian variance (high-frequency content)
-    # The Laplacian is basically a 2D derivative - it highlights rapid changes
+    # For line art, this just detects edges, not noise!
     laplacian = cv2.Laplacian(img, cv2.CV_32F)
     laplacian_variance = laplacian.var()
     
     # 2) Noise residual (image - blurred image)
-    # Blur removes high-freq stuff, so what's left is the noise
+    # This is what actually matters for line art!
+    # Clean edges → low residual
+    # Fuzzy/noisy edges → high residual
     blurred = cv2.GaussianBlur(img, (5, 5), 0)
     residual = img - blurred
     residual_std = residual.std()
     
-    # 3) Combined noise score (empirically weighted)
-    noise_score = laplacian_variance * 0.7 + residual_std * 0.3
+    # 3) For line art, use ONLY residual as noise score
+    # Laplacian is useless here - it just detects edges!
+    noise_score = residual_std
     
     return {
         "laplacian_variance": float(laplacian_variance),
         "residual_std": float(residual_std),
-        "noise_score": float(noise_score),
+        "noise_score": float(noise_score),  # Just residual for line art!
     }
 
 
 def classify_noise_level(noise_score: float) -> str:
     """
-    Classify noise level based on combined noise score.
+    Classify noise level based on residual std deviation.
+    
+    For line art, this measures how "fuzzy" the edges are.
     
     Args:
-        noise_score: Combined noise metric from compute_noise_metrics
+        noise_score: Residual std from compute_noise_metrics
         
     Returns:
         One of: "low", "moderate", "high"
     """
-    if noise_score < config.NOISE_THRESHOLD_LOW:
+    # New thresholds based on residual_std only:
+    # Clean line art: ~15-25
+    # Moderate noise: ~25-40
+    # High noise: 40+
+    if noise_score < 25:
         return "low"
-    elif noise_score < config.NOISE_THRESHOLD_HIGH:
+    elif noise_score < 40:
         return "moderate"
     else:
         return "high"
