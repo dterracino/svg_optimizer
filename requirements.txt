@@ -11,6 +11,3 @@ opencv-python>=4.8.0     # Noise analysis (cv2)
 
 # Console UI and logging
 rich>=13.0.0             # Beautiful console output and progress bars
-
-# Optional performance boost (uncomment if your platform supports it)
-# numba>=0.57.0          # JIT compiler for ~2x potracer speedup
