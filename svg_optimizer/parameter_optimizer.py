@@ -37,7 +37,7 @@ class OptimizationResult:
     threshold_iterations: int
     smooth_iterations: int
     total_evaluations: int
-    comparison_entries: list  # List of (svg_content, params, score) for visual logger
+    comparison_entries: Optional[list] = None  # Optional - filesystem approach doesn't need it
     evaluation_history: List[Dict] = None  # NEW: Track all evaluations for visual logging
     
     def __post_init__(self):

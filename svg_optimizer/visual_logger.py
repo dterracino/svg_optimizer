@@ -98,7 +98,7 @@ class VisualLogger:
                 orig_width, orig_height = img.size
             
             thumb_width = config.THUMBNAIL_SIZE
-            thumb_height = int(thumb_width * orig_height / orig_width)
+            thumb_height = int(thumb_width * orig_height / orig_width)  # Ensure int!
             
             log_debug(f"Thumbnail size: {thumb_width}x{thumb_height}")
             
@@ -179,8 +179,8 @@ class VisualLogger:
         label = "ORIGINAL"
         # Use textbbox instead of deprecated textsize
         bbox = draw.textbbox((0, 0), label, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        text_width = int(bbox[2] - bbox[0])
+        text_height = int(bbox[3] - bbox[1])
         
         # Black background for label
         label_bg = Image.new('RGB', (width, text_height + 10), color='black')
@@ -198,7 +198,7 @@ class VisualLogger:
         width: int,
         height: int,
         index: int
-    ) -> Image.Image:
+    ) -> Optional[Image.Image]:
         """
         Create a labeled thumbnail from an SVG entry.
         
@@ -213,6 +213,11 @@ class VisualLogger:
         Returns:
             PIL Image with labels, or None if rasterization failed
         """
+        # Ensure temp dir exists
+        if self._temp_dir is None:
+            log_error("Temp directory not initialized")
+            return None
+        
         # Rasterize the SVG to a temp PNG
         temp_png = self._temp_dir / f"thumb_{index}.png"
         
@@ -258,7 +263,7 @@ class VisualLogger:
         
         # Draw score at the top (white text on black background)
         bbox = draw.textbbox((0, 0), score_text, font=font_score)
-        score_height = bbox[3] - bbox[1]
+        score_height = int(bbox[3] - bbox[1])  # Ensure int
         score_bg = Image.new('RGB', (width, score_height + 10), color='black')
         img.paste(score_bg, (0, 0))
         
@@ -267,7 +272,7 @@ class VisualLogger:
         # Draw parameters at the bottom
         param_text = f"{threshold_text}  {smooth_text}"
         bbox = draw.textbbox((0, 0), param_text, font=font_params)
-        param_height = bbox[3] - bbox[1]
+        param_height = int(bbox[3] - bbox[1])  # Ensure int
         param_bg = Image.new('RGB', (width, param_height + 6), color='black')
         img.paste(param_bg, (0, height - param_height - 6))
         
