@@ -15,7 +15,7 @@ they're represented. So we can optimize them independently!
 """
 from pathlib import Path
 from typing import Dict, Tuple, Callable, Optional, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import log_info, log_debug, log_section, create_progress_bar
 from . import config
@@ -37,13 +37,6 @@ class OptimizationResult:
     threshold_iterations: int
     smooth_iterations: int
     total_evaluations: int
-    comparison_entries: Optional[list] = None  # Optional - filesystem approach doesn't need it
-    evaluation_history: List[Dict] = None  # NEW: Track all evaluations for visual logging
-    
-    def __post_init__(self):
-        """Initialize evaluation_history if not provided."""
-        if self.evaluation_history is None:
-            self.evaluation_history = []
 
 
 @dataclass
@@ -193,7 +186,6 @@ class ParameterOptimizer:
                           Returns: 0.9234
         """
         self.score_function = score_function
-        self.evaluation_history = []  # NEW: Track all evaluations
         log_debug("ParameterOptimizer initialized")
     
     def determine_turdsize(self, noise_level: str) -> int:
@@ -237,9 +229,6 @@ class ParameterOptimizer:
         """
         log_section("Sequential Parameter Optimization")
         
-        # Clear history from any previous run
-        self.evaluation_history = []
-        
         # Step 1: Set turdsize based on noise (not searched!)
         turdsize = self.determine_turdsize(image_analysis['noise_level'])
         
@@ -248,17 +237,6 @@ class ParameterOptimizer:
         turnpolicy = config.POTRACE_DEFAULTS['turnpolicy']
         
         total_evals = 0
-        
-        # Wrap score function to track history
-        def tracked_score_function(params: dict) -> float:
-            """Wrapper that records every evaluation."""
-            score = self.score_function(params)
-            # Record this evaluation
-            self.evaluation_history.append({
-                'params': params.copy(),
-                'score': score
-            })
-            return score
         
         # ====================================================================
         # Phase 1: Optimize threshold (COARSE - gets shapes right)
@@ -282,7 +260,7 @@ class ParameterOptimizer:
                 'opttolerance': opttolerance,
                 'turnpolicy': turnpolicy,
             }
-            return tracked_score_function(params)  # Use tracked version!
+            return self.score_function(params)
         
         # Binary search for best threshold
         best_threshold, score_after_threshold, threshold_iters = binary_search_parameter(
@@ -312,7 +290,7 @@ class ParameterOptimizer:
                 'opttolerance': opttolerance,
                 'turnpolicy': turnpolicy,
             }
-            return tracked_score_function(params)  # Use tracked version!
+            return self.score_function(params)
         
         # Binary search for best smooth
         best_smooth, best_score, smooth_iters = binary_search_parameter(
@@ -337,7 +315,6 @@ class ParameterOptimizer:
         log_info(f"Turdsize: {turdsize}")
         log_info(f"Final SSIM score: {best_score:.4f}")
         log_info(f"Total evaluations: {total_evals}")
-        log_debug(f"Tracked {len(self.evaluation_history)} evaluations in history")
         
         return OptimizationResult(
             best_threshold=best_threshold,
@@ -348,6 +325,5 @@ class ParameterOptimizer:
             best_score=best_score,
             threshold_iterations=threshold_iters,
             smooth_iterations=smooth_iters,
-            total_evaluations=total_evals,
-            evaluation_history=self.evaluation_history  # NEW: Include history!
+            total_evaluations=total_evals
         )

@@ -8,7 +8,7 @@ labeled. This lets you visually verify the optimizer picked the right one!
 Think of it like a contact sheet in photography - you can see all the attempts at once.
 """
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
