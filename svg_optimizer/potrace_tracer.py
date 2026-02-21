@@ -35,13 +35,13 @@ from . import config
 
 def paths_to_svg(paths, width: int, height: int) -> str:
     """
-    Convert potracer path list to SVG string.
+    Convert potracer path to SVG string.
     
-    Potracer returns a list of path objects with curve information.
-    We need to convert this to actual SVG path data.
+    Potracer returns a Path object that is iterable, containing Curve objects.
+    Each Curve has segments which can be either BezierSegment or CornerSegment.
     
     Args:
-        paths: Path list from bitmap.trace()
+        paths: Path object from bitmap.trace()
         width: Image width (for viewBox)
         height: Image height (for viewBox)
         
@@ -58,26 +58,27 @@ def paths_to_svg(paths, width: int, height: int) -> str:
               f'viewBox="0 0 {width} {height}" '
               f'xmlns="http://www.w3.org/2000/svg" version="1.1">\n')
     
-    # Each path becomes a <path> element
-    for path in paths:
+    # Each curve in the path becomes a <path> element
+    for curve in paths:
         svg.write('<path d="')
         
-        # Iterate through curve segments in the path
-        # Each segment has a start point and control points for bezier curves
-        for curve in path:
-            # curve is a Curve object with start_point, c1, c2, end_point
-            if curve.tag == "CORNER":
-                # Sharp corner - line segment
-                svg.write(f'M{curve.c[0].x:.2f},{curve.c[0].y:.2f} ')
-                svg.write(f'L{curve.c[1].x:.2f},{curve.c[1].y:.2f} ')
-            else:
-                # Bezier curve segment
-                # M = move to start, C = cubic bezier curve
-                svg.write(f'M{curve.c[0].x:.2f},{curve.c[0].y:.2f} ')
-                svg.write(f'C{curve.c[1].x:.2f},{curve.c[1].y:.2f} '
-                         f'{curve.c[2].x:.2f},{curve.c[2].y:.2f} '
-                         f'{curve.end_point.x:.2f},{curve.end_point.y:.2f} ')
+        # Start at the curve's start point
+        start = curve.start_point
+        svg.write(f'M{start.x:.2f},{start.y:.2f} ')
         
+        # Iterate through segments in the curve
+        for segment in curve.segments:
+            if segment.is_corner:
+                # Corner segment - line to the corner point, then to end
+                svg.write(f'L{segment.c.x:.2f},{segment.c.y:.2f} ')
+                svg.write(f'L{segment.end_point.x:.2f},{segment.end_point.y:.2f} ')
+            else:
+                # Bezier segment - cubic bezier curve
+                svg.write(f'C{segment.c1.x:.2f},{segment.c1.y:.2f} '
+                         f'{segment.c2.x:.2f},{segment.c2.y:.2f} '
+                         f'{segment.end_point.x:.2f},{segment.end_point.y:.2f} ')
+        
+        # Close the path
         svg.write('Z" fill="black" stroke="none"/>\n')
     
     svg.write('</svg>\n')
