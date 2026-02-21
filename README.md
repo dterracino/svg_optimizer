@@ -1,47 +1,59 @@
 # SVG Auto-Optimizer
 
-Automatically optimize bitmap-to-SVG conversion parameters by testing multiple combinations and selecting the best result based on visual similarity.
+Automatically optimize bitmap-to-SVG conversion parameters using intelligent binary search and SSIM-based quality scoring.
 
-## 🚧 Current Status: Phase 1 - Foundation
+## Overview
 
-We're building this step-by-step! Here's what's working now:
+SVG Auto-Optimizer takes the guesswork out of converting raster images (PNG, JPG, etc.) to vector SVGs. Instead of manually tweaking Potrace parameters in Inkscape until it "looks right," this tool automatically finds the optimal settings for your specific image.
 
-✅ **Core infrastructure** - config, unified logging system  
-✅ **SSIM testing script** - Test image quality empirically  
-🚧 **Main optimizer** - Coming next!
+**Key Features:**
 
-## Setup
+- 🎯 **Smart optimization** - Sequential binary search instead of brute-force grid search
+- 📊 **Quality scoring** - Binary SSIM comparison measures shape accuracy, not color
+- 🚀 **Fast convergence** - Typically 14-18 evaluations vs 20-30+ for grid search
+- 📸 **Visual proof sheets** - See all tested combinations in a comparison grid
+- ⏭️ **Bail-early** - Skips optimization if defaults already score 0.95+
 
-### 1. Install Python Dependencies
+**Perfect for:**
+
+- Converting logos and line art for CAD software (Fusion 360, etc.)
+- Preparing vector graphics from scanned drawings
+- Batch processing images with consistent quality
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8+
+- [Inkscape](https://inkscape.org/) installed and accessible from command line
+
+### Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/svg-optimizer.git
+cd svg-optimizer
+```
+
+1. Create and activate a virtual environment:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# or
+source .venv/bin/activate  # Linux/Mac
+```
+
+1. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Verify Inkscape Installation
+## Usage
 
-Make sure Inkscape is installed at:
-
-```text
-C:\Program Files\Inkscape\bin\inkscape.exe
-```
-
-If it's somewhere else, update `INKSCAPE_PATH` in `svg_optimizer/config.py`
-
-## Current Tools
-
-### SVG Auto-Optimizer (Main Application)
-
-**Purpose:** Automatically optimize bitmap-to-SVG conversion by testing parameter combinations and selecting the best result.
-
-**How it works:**
-
-1. Analyzes your image (noise level, background type)
-2. Tries default parameters first
-3. If defaults aren't good enough, runs sequential binary search optimization
-4. Saves the best SVG it finds!
-
-**Basic Usage:**
+### Basic Usage
 
 ```bash
 # Simple - optimize and save as input.svg
@@ -49,7 +61,11 @@ python -m svg_optimizer logo.png
 
 # Or use the wrapper script
 python svg_optimize.py logo.png
+```
 
+### Common Options
+
+```bash
 # Specify custom output location
 python -m svg_optimizer logo.png --output my_logo.svg
 
@@ -59,158 +75,175 @@ python -m svg_optimizer logo.png --skip-optimization
 # Manual threshold override
 python -m svg_optimizer logo.png --threshold 0.35
 
+# Skip the comparison sheet
+python -m svg_optimizer logo.png --no-comparison
+
 # Verbose debug output
 python -m svg_optimizer logo.png --verbose
 ```
 
-**What it does:**
-
-- ✅ Analyzes image (noise, background type)
-- ✅ Tests defaults first (might be good enough!)
-- ✅ Binary search optimization if needed (Phase 1: threshold, Phase 2: smooth)
-- ✅ Saves optimized SVG
-- ✅ Shows final parameters and SSIM score
-- ✅ Progress bars and status updates throughout!
-
-**Example Output:**
+### Full Options
 
 ```text
-================================================================
-SVG Auto-Optimizer
-================================================================
-Input: logo.png
-Output: logo.svg
+usage: python -m svg_optimizer [-h] [-o OUTPUT] [-c COMPARISON] [--no-comparison]
+                               [--skip-optimization] [--threshold THRESHOLD]
+                               [-v] [--log-file LOG_FILE]
+                               input
 
-Analyzing image characteristics...
-  Dimensions: 512x512 pixels
-  Noise level: LOW (score=23.4)
-  Background: LIGHT (brightness=0.89)
+positional arguments:
+  input                 Input raster image (PNG, JPG, etc.)
 
-================================================================
-Testing Default Parameters
-================================================================
-Default parameters: threshold=0.450, turdsize=2, smooth=1.00
-Default SSIM score: 0.8834
-⚠ Score 0.8834 below threshold (0.95)
-Starting parameter optimization...
-
-================================================================
-Binary Search: threshold
-================================================================
-Starting at 0.450, step=0.200
-  ↓ Improved to 0.350 (score=0.9123, +0.0289)
-  ↓ Improved to 0.250 (score=0.9401, +0.0278)
-  Peaked! Halving step to 0.100
-Converged after 8 iterations
-Best threshold: 0.280 (score=0.9456)
-
-================================================================
-Binary Search: smooth
-================================================================
-Starting at 1.000, step=0.300
-  ↑ Improved to 1.100 (score=0.9489, +0.0033)
-Converged after 5 iterations
-Best smooth: 1.120 (score=0.9492)
-
-================================================================
-Optimization Complete!
-================================================================
-✓ Saved SVG: logo.svg
-Final parameters:
-  Threshold: 0.280
-  Smooth: 1.12
-  Turdsize: 2
-Final SSIM score: 0.9492
-Improvement: +0.0658
-Total evaluations: 13
-Time: 8.3s
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Output SVG file path (default: input.svg)
+  -c COMPARISON, --comparison COMPARISON
+                        Comparison sheet PNG path (default: input_comparison.png)
+  --no-comparison       Skip generating the visual comparison sheet
+  --skip-optimization   Skip parameter optimization, just use defaults
+  --threshold THRESHOLD
+                        Override: Set specific threshold value (0.0-1.0)
+  -v, --verbose         Enable verbose debug output
+  --log-file LOG_FILE   Custom log file path (default: svg_optimizer.log)
 ```
 
-### SSIM Tester
+## How It Works
 
-**Purpose:** Figure out what SSIM score means "good enough" for YOUR images.
+### 1. Image Analysis
 
-**Workflow:**
+Analyzes your input image to determine:
 
-1. Manually convert an image to SVG in Inkscape using settings you like
-2. Run the SSIM tester to see how well it scores
-3. Try different Inkscape settings and re-test
-4. Determine your "acceptable" SSIM threshold
+- **Noise level** - How much speckle removal is needed
+- **Background type** - Light vs dark (affects threshold search range)
 
-**Usage:**
+### 2. Try Defaults First
 
-```bash
-python ssim_tester.py my_image.png my_image.svg
-```
+Tests Inkscape's default parameters (threshold=0.45, smooth=1.0). If the SSIM score is ≥0.95, optimization is skipped entirely!
 
-**Example:**
+### 3. Sequential Binary Search Optimization
 
-```bash
-# You manually created logo.svg from logo.png in Inkscape
-python ssim_tester.py logo.png logo.svg
+If defaults aren't good enough, runs two optimization phases:
 
-# Output will show:
-# SSIM Score: 0.9234
-# Assessment: VERY GOOD - Likely acceptable
-```
+#### Phase 1: Threshold (Coarse Adjustment)
 
-**What the scores mean:**
+- Determines WHERE shapes are detected
+- Binary search finds optimal blacklevel value
+- ~8-10 iterations to converge
 
-- `0.95+` = Excellent (optimizer would skip optimization)
-- `0.90-0.95` = Very good
-- `0.85-0.90` = Good
-- `0.80-0.85` = OK
-- `<0.80` = Poor (definitely needs optimization)
+#### Phase 2: Smooth (Fine Adjustment)
+
+- Tweaks HOW curves are represented
+- Binary search finds optimal alphamax value
+- ~6-8 iterations to converge
+
+#### Total: ~14-18 SVG generations (vs 20-30+ for grid search)
+
+### 4. Generate Outputs
+
+- **Optimized SVG** - Best result found
+- **Comparison sheet** (optional) - Visual grid showing all tested combinations with scores
+
+## Understanding SSIM Scores
+
+SSIM (Structural Similarity Index) scores range from 0.0 to 1.0:
+
+- **0.95+** - Excellent! Shapes match nearly perfectly
+- **0.90-0.95** - Very good, minor differences
+- **0.85-0.90** - Good, but noticeable differences
+- **0.80-0.85** - OK, optimization recommended
+- **<0.80** - Poor, significant differences
+
+We use **binary SSIM** (threshold both images to pure B&W before comparing) because CAD tools only care about shape boundaries, not colors or gradients.
 
 ## Project Structure
 
 ```text
 svg_optimizer/
-├── __init__.py          # Package initialization
-├── config.py            # All constants and settings (EDIT THIS!)
-└── utils.py             # Unified logging and helpers
-
-ssim_tester.py           # Standalone SSIM testing tool
-requirements.txt         # Python dependencies
-PLANNING.md             # Full project design document
+├── svg_optimizer/          # Main package
+│   ├── __init__.py         # Package initialization & logging exports
+│   ├── __main__.py         # CLI application entry point
+│   ├── config.py           # All configuration constants
+│   ├── utils.py            # Unified logging & helper functions
+│   ├── image_analysis.py   # Noise & background detection
+│   ├── potrace_tracer.py   # Bitmap→SVG tracing (potracer wrapper)
+│   ├── inkscape_wrapper.py # SVG→PNG rasterization
+│   ├── image_comparer.py   # Binary SSIM quality scoring
+│   ├── parameter_optimizer.py  # Sequential binary search
+│   └── visual_logger.py    # Comparison sheet generation
+├── svg_optimize.py         # Convenience wrapper script
+├── ssim_tester.py          # Standalone SSIM testing tool
+├── requirements.txt        # Python dependencies
+├── PLANNING.md             # Detailed design documentation
+└── README.md               # This file
 ```
+
+## Tools
+
+### SSIM Tester
+
+A standalone tool for calibrating what SSIM scores mean for your specific use case:
+
+```bash
+python ssim_tester.py original.png manually_traced.svg
+```
+
+This helps you understand what scores to expect and validates that the optimizer is working correctly.
+
+**Workflow:**
+
+1. Manually trace an image in Inkscape with settings you like
+2. Run the tester to see what score that gets
+3. Use that as your quality reference
 
 ## Design Principles
 
-This codebase follows strict design principles:
+This project follows strict coding principles:
 
-✅ **Small, focused files** - Each module does ONE thing  
-✅ **Separation of Concerns** - Clear boundaries between components  
-✅ **DRY** - Never repeat yourself (especially logging!)  
-✅ **Always verbose** - The app is NEVER silent
+- **DRY (Don't Repeat Yourself)** - Unified logging system, single source of truth
+- **Separation of Concerns** - Each module has ONE job, clear boundaries
+- **Small Files** - Every file is focused and manageable
+- **Always Verbose** - Progress updates, never silent, constant feedback
 
-### The Unified Logging System
+## Technical Details
 
-We use a special logging approach where **one call logs to BOTH file and console**:
+### Dependencies
 
-```python
-# WRONG (violates DRY):
-console.print("Starting...")
-logger.info("Starting...")
+- **Pillow** - Image loading and manipulation
+- **potracer** - Pure Python potrace implementation (bitmap tracing)
+- **NumPy** - Array operations
+- **scikit-image** - SSIM calculation
+- **OpenCV** - Noise analysis
+- **Rich** - Beautiful console output with progress bars
 
-# RIGHT (one call, two outputs):
-log_info("Starting...")
-```
+### Why Binary SSIM?
 
-All logging functions are in `utils.py` and automatically:
+When comparing a color input image to a black-and-white SVG output, standard SSIM penalizes luminance differences even when shapes match perfectly. By thresholding both images to pure binary (0 or 255) before comparison, we measure shape similarity - which is what actually matters for CAD applications.
 
-- Write to `svg_optimizer.log` (Python logging)
-- Display pretty output via Rich (console)
+### Why Sequential Binary Search?
 
-## Next Steps
+Potrace parameters are mostly **orthogonal** (independent):
 
-We're building this incrementally! Next up:
+- **Threshold** - Determines WHERE shapes are
+- **Smooth** - Determines HOW they're represented
+- **Turdsize** - Just removes noise (set once, not optimized)
 
-- [ ] Potrace tracer module
-- [ ] Inkscape wrapper for rasterization
-- [ ] Image comparison and analysis
-- [ ] Parameter grid generator
-- [ ] Main optimization loop
-- [ ] Visual comparison sheet generator
+Since they affect different aspects, we can optimize them sequentially instead of testing every combination. This is both faster AND finds better results (adaptive precision vs fixed grid spacing).
 
-Stay tuned! 🚀
+## Contributing
+
+Contributions welcome! This project emphasizes clean, maintainable code. Please follow the existing patterns:
+
+- Small, focused files
+- Comprehensive docstrings
+- DRY principles
+- Type hints where helpful
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Acknowledgments
+
+- Built with [potracer](https://github.com/tatarize/potrace) - Pure Python potrace implementation
+- Uses [Inkscape](https://inkscape.org/) for SVG rasterization
+- Inspired by the need for better bitmap→CAD workflows
