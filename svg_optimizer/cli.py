@@ -26,6 +26,12 @@ Examples:
   # Specify custom output location
   %(prog)s logo.png --output my_logo.svg
   
+  # AI upscale before tracing (improves quality for low-res images)
+  %(prog)s logo.png --upscale
+  
+  # Upscale with specific method and 4x factor
+  %(prog)s logo.png --upscale --upscale-method realesrgan --upscale-factor 4
+  
   # Skip optimization, just use defaults
   %(prog)s logo.png --skip-optimization
   
@@ -77,6 +83,29 @@ Examples:
         '--threshold',
         type=float,
         help='Override: Set specific threshold value (0.0-1.0)'
+    )
+    
+    # Image preprocessing options
+    parser.add_argument(
+        '--upscale',
+        action='store_true',
+        help='Enable AI upscaling before tracing (improves edge quality)'
+    )
+    
+    parser.add_argument(
+        '--upscale-method',
+        type=str,
+        choices=['realesrgan', 'waifu2x', 'auto'],
+        default='auto',
+        help='AI upscaling method (default: auto - tries Real-ESRGAN first)'
+    )
+    
+    parser.add_argument(
+        '--upscale-factor',
+        type=int,
+        choices=[2, 4],
+        default=2,
+        help='Upscaling factor: 2x or 4x (default: 2)'
     )
     
     # Logging options

@@ -31,6 +31,7 @@ from svg_optimizer.potrace_tracer import PotraceTracer
 from svg_optimizer.inkscape_wrapper import InkscapeWrapper
 from svg_optimizer.image_comparer import ImageComparer
 from svg_optimizer.parameter_optimizer import ParameterOptimizer
+from svg_optimizer.image_upscaler import upscale_for_tracing
 
 
 # ============================================================================
@@ -85,17 +86,49 @@ def main():
         log_info("Comparison sheet: [disabled]")
     
     # ========================================================================
-    # Step 2: Analyze Image
+    # Step 2: AI Upscaling (Optional)
+    # ========================================================================
+    
+    # Track the actual input file to use for tracing (original or upscaled)
+    working_input = args.input
+    upscaled_temp_file = None
+    
+    if args.upscale:
+        try:
+            upscaled_path = upscale_for_tracing(
+                args.input,
+                method=args.upscale_method,
+                scale=args.upscale_factor,
+                output_path=None  # Will create temp file
+            )
+            
+            if upscaled_path:
+                working_input = upscaled_path
+                upscaled_temp_file = upscaled_path  # Track for cleanup
+                log_info(f"Using upscaled image for tracing: {upscaled_path}")
+            else:
+                log_warning("Upscaling failed, using original image")
+                
+        except ImportError as e:
+            log_error(f"Upscaling dependencies not available: {e}")
+            log_warning("Continuing with original image without upscaling")
+            log_info("To enable upscaling, install: pip install -r requirements-gpu.txt")
+        except Exception as e:
+            log_error(f"Unexpected error during upscaling: {e}")
+            log_warning("Continuing with original image")
+    
+    # ========================================================================
+    # Step 3: Analyze Image
     # ========================================================================
     
     try:
-        image_info = analyze_image(args.input)
+        image_info = analyze_image(working_input)
     except Exception as e:
         log_error(f"Image analysis failed: {e}")
         return 1
     
     # ========================================================================
-    # Step 3: Initialize Components
+    # Step 4: Initialize Components
     # ========================================================================
     
     log_section("Initializing Components")
@@ -137,7 +170,7 @@ def main():
     
     # Trace with defaults
     svg_content_default = tracer.trace_to_svg_string(
-        args.input,
+        working_input,
         blacklevel=default_params['blacklevel'],
         turdsize=default_params['turdsize'],
         alphamax=default_params['alphamax'],
@@ -170,6 +203,14 @@ def main():
         # Save the default SVG
         with open(output_svg, 'w', encoding='utf-8') as f:
             f.write(svg_content_default)
+        
+        # Cleanup upscaled temp file if it exists
+        if upscaled_temp_file and upscaled_temp_file.exists():
+            try:
+                upscaled_temp_file.unlink()
+                log_debug(f"Cleaned up upscaled temp file: {upscaled_temp_file}")
+            except Exception as e:
+                log_debug(f"Failed to cleanup upscaled temp file: {e}")
         
         elapsed = time.time() - start_time
         
@@ -204,7 +245,7 @@ def main():
     def score_params(params: dict) -> float:
         """Score function for parameter optimization."""
         svg = tracer.trace_to_svg_string(
-            args.input,
+            working_input,
             blacklevel=params['blacklevel'],
             turdsize=params['turdsize'],
             alphamax=params['alphamax'],
@@ -249,7 +290,7 @@ def main():
     log_section("Generating Final SVG")
     
     success = tracer.trace_to_svg(
-        args.input,
+        working_input,
         output_svg,
         blacklevel=result.best_threshold,
         turdsize=result.turdsize,
@@ -331,6 +372,14 @@ def main():
             log_debug(f"Cleaned up temp directory: {temp_dir}")
         else:
             log_info(f"Temp files kept at: {temp_dir}")
+    
+    # Cleanup upscaled temp file
+    if upscaled_temp_file and upscaled_temp_file.exists():
+        try:
+            upscaled_temp_file.unlink()
+            log_debug(f"Cleaned up upscaled temp file: {upscaled_temp_file}")
+        except Exception as e:
+            log_debug(f"Failed to cleanup upscaled temp file: {e}")
     
     # ========================================================================
     # Step 8: Summary

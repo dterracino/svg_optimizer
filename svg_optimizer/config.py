@@ -98,6 +98,15 @@ WINNER_BORDER_COLOR = (0, 255, 0)   # Green border for best result
 WINNER_BORDER_WIDTH = 5
 
 # ============================================================================
+# AI Upscaling Settings
+# ============================================================================
+UPSCALE_DEFAULT_METHOD = 'auto'  # 'realesrgan', 'waifu2x', or 'auto'
+UPSCALE_DEFAULT_FACTOR = 2       # 2x or 4x upscaling
+UPSCALE_TILE_SIZE_CPU = 400      # Tile size for CPU processing (smaller = less RAM)
+UPSCALE_TILE_SIZE_GPU = 0        # 0 = no tiling on GPU (process whole image)
+UPSCALE_USE_FP16_GPU = True      # Use half-precision on GPU for speed/memory
+
+# ============================================================================
 # Logging Configuration
 # ============================================================================
 LOG_FILE_NAME = "svg_optimizer.log"

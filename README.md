@@ -47,9 +47,25 @@ source .venv/bin/activate  # Linux/Mac
 
 1. Install dependencies:
 
+**Choose your installation based on your hardware:**
+
 ```bash
-pip install -r requirements.txt
+# For GPU acceleration (NVIDIA GPU with CUDA support)
+pip install -r requirements-gpu.txt
+
+# For CPU-only (no GPU required)
+pip install -r requirements-cpu.txt
 ```
+
+The GPU version enables:
+
+- **AI Upscaling** - Real-ESRGAN and waifu2x for image enhancement
+- **Background Removal** - rembg for automatic background removal
+- Faster processing on CUDA-capable GPUs
+
+The CPU version includes the same features but runs on CPU only (slower but works everywhere).
+
+**Core tracing features work with either installation.**
 
 ## Usage
 
@@ -69,6 +85,12 @@ python svg_optimize.py logo.png
 # Specify custom output location
 python -m svg_optimizer logo.png --output my_logo.svg
 
+# AI upscale before tracing (improves quality for low-res/noisy images)
+python -m svg_optimizer logo.png --upscale
+
+# Upscale with specific method and factor
+python -m svg_optimizer logo.png --upscale --upscale-method realesrgan --upscale-factor 4
+
 # Skip optimization, just use defaults (fast!)
 python -m svg_optimizer logo.png --skip-optimization
 
@@ -82,11 +104,41 @@ python -m svg_optimizer logo.png --no-comparison
 python -m svg_optimizer logo.png --verbose
 ```
 
+### AI Upscaling
+
+For low-resolution or noisy images, AI upscaling can significantly improve tracing quality by enhancing edges before vectorization:
+
+```bash
+# Enable upscaling with auto-detection (tries Real-ESRGAN first)
+python -m svg_optimizer lowres.png --upscale
+
+# Use specific upscaler
+python -m svg_optimizer lowres.png --upscale --upscale-method realesrgan  # Best for general images
+python -m svg_optimizer lowres.png --upscale --upscale-method waifu2x     # Best for line art/anime
+
+# 4x upscaling for very small images
+python -m svg_optimizer tiny_logo.png --upscale --upscale-factor 4
+```
+
+**Benefits:**
+
+- 🎨 Smoother vector paths from cleaner edges
+- 📏 Better detail preservation in small images
+- 🔧 Reduces noise artifacts in the final SVG
+
+**GPU Acceleration:**
+
+- Automatically detects NVIDIA GPU and CUDA support
+- Displays GPU name and VRAM information
+- Falls back to CPU if GPU unavailable (slower)
+
 ### Full Options
 
 ```text
 usage: python -m svg_optimizer [-h] [-o OUTPUT] [-c COMPARISON] [--no-comparison]
                                [--skip-optimization] [--threshold THRESHOLD]
+                               [--upscale] [--upscale-method {realesrgan,waifu2x,auto}]
+                               [--upscale-factor {2,4}]
                                [-v] [--log-file LOG_FILE]
                                input
 
@@ -103,24 +155,38 @@ optional arguments:
   --skip-optimization   Skip parameter optimization, just use defaults
   --threshold THRESHOLD
                         Override: Set specific threshold value (0.0-1.0)
+  --upscale             Enable AI upscaling before tracing (improves edge quality)
+  --upscale-method {realesrgan,waifu2x,auto}
+                        AI upscaling method (default: auto)
+  --upscale-factor {2,4}
+                        Upscaling factor: 2x or 4x (default: 2)
   -v, --verbose         Enable verbose debug output
   --log-file LOG_FILE   Custom log file path (default: svg_optimizer.log)
 ```
 
 ## How It Works
 
-### 1. Image Analysis
+### 1. AI Upscaling (Optional)
 
-Analyzes your input image to determine:
+If enabled with `--upscale`, enhances the input image before tracing:
+
+- **Real-ESRGAN** - General-purpose AI upscaling with excellent edge enhancement
+- **waifu2x** - Specialized for line art and illustrations
+- Automatically detects and uses GPU if available
+- Reports GPU name and VRAM information
+
+### 2. Image Analysis
+
+Analyzes your input image (original or upscaled) to determine:
 
 - **Noise level** - How much speckle removal is needed
 - **Background type** - Light vs dark (affects threshold search range)
 
-### 2. Try Defaults First
+### 3. Try Defaults First
 
 Tests Inkscape's default parameters (threshold=0.45, smooth=1.0). If the SSIM score is ≥0.95, optimization is skipped entirely!
 
-### 3. Sequential Binary Search Optimization
+### 4. Sequential Binary Search Optimization
 
 If defaults aren't good enough, runs two optimization phases:
 
@@ -138,7 +204,7 @@ If defaults aren't good enough, runs two optimization phases:
 
 **Total:** ~14-18 SVG generations (vs 20-30+ for grid search)
 
-### 4. Generate Outputs
+### 5. Generate Outputs
 
 - **Optimized SVG** - Best result found
 - **Comparison sheet** (optional) - Visual grid showing all tested combinations with scores
@@ -164,7 +230,9 @@ svg_optimizer/
 │   ├── __main__.py         # CLI application entry point
 │   ├── config.py           # All configuration constants
 │   ├── utils.py            # Unified logging & helper functions
+│   ├── cli.py              # Command-line argument parsing
 │   ├── image_analysis.py   # Noise & background detection
+│   ├── image_upscaler.py   # AI upscaling (Real-ESRGAN, waifu2x)
 │   ├── potrace_tracer.py   # Bitmap→SVG tracing (potracer wrapper)
 │   ├── inkscape_wrapper.py # SVG→PNG rasterization
 │   ├── image_comparer.py   # Binary SSIM quality scoring
@@ -172,7 +240,9 @@ svg_optimizer/
 │   └── visual_logger.py    # Comparison sheet generation
 ├── svg_optimize.py         # Convenience wrapper script
 ├── ssim_tester.py          # Standalone SSIM testing tool
-├── requirements.txt        # Python dependencies
+├── requirements.txt        # Core Python dependencies
+├── requirements-cpu.txt    # CPU-only installation (includes core)
+├── requirements-gpu.txt    # GPU installation (includes core)
 ├── PLANNING.md             # Detailed design documentation
 └── README.md               # This file
 ```
@@ -208,12 +278,22 @@ This project follows strict coding principles:
 
 ### Dependencies
 
+**Core (always required):**
+
 - **Pillow** - Image loading and manipulation
 - **potracer** - Pure Python potrace implementation (bitmap tracing)
 - **NumPy** - Array operations
 - **scikit-image** - SSIM calculation
 - **OpenCV** - Noise analysis
 - **Rich** - Beautiful console output with progress bars
+
+**Optional (for AI features):**
+
+- **PyTorch** - Deep learning framework (CPU or CUDA)
+- **Real-ESRGAN** - AI upscaling for general images
+- **waifu2x** - AI upscaling specialized for line art
+- **rembg** - AI background removal (future feature)
+- **basicsr** - Basic image restoration toolkit
 
 ### Why Binary SSIM?
 

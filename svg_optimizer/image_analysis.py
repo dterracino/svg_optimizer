@@ -6,6 +6,9 @@ This module analyzes input images to determine:
 2. Background type (light vs dark)
 
 These analyses help us intelligently select parameter ranges for optimization.
+
+Later we can expand this to handle various types of noise removal
+(e.g. https://medium.com/@amine-RT/guide-to-image-noise-reduction-techniques-in-python-c24da16052dc)
 """
 import cv2
 import numpy as np
