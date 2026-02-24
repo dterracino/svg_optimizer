@@ -1,0 +1,17 @@
+# GPU installation with CUDA support
+# Install with: pip install -r requirements-gpu.txt
+#
+# Prerequisites:
+# - NVIDIA GPU with CUDA support
+# Using CUDA 12.1 for best compatibility with rembg and Real-ESRGAN
+
+# PyTorch with CUDA 12.1 (best compatibility)
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch>=2.0.0,<2.4.0
+torchvision>=0.17.0,<0.20.0
+
+# Background removal with GPU support
+rembg[gpu]>=2.0.50
+
+# Include base dependencies
+-r requirements.txt

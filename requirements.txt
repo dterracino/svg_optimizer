@@ -1,4 +1,8 @@
-# SVG Auto-Optimizer Dependencies
+# Core dependencies for SVG Auto-Optimizer
+# Note: This file does NOT include PyTorch. Use one of the following:
+#   - pip install -r requirements-cpu.txt  (CPU-only, smaller download)
+#   - pip install -r requirements-gpu.txt  (CUDA support, requires compatible GPU)
+# This will also install the dependencies listed below.
 
 # Core image processing
 Pillow>=10.0.0           # Image loading and manipulation
@@ -11,3 +15,12 @@ opencv-python>=4.8.0     # Noise analysis (cv2)
 
 # Console UI and logging
 rich>=13.0.0             # Beautiful console output and progress bars
+
+# Background removal (installed via CPU/GPU requirements files)
+# rembg is NOT included here - it requires onnxruntime backend
+# which is installed via requirements-cpu.txt or requirements-gpu.txt
+
+# Image upscaling
+basicsr>=1.4.2
+realesrgan>=0.3.0
+waifu2x_python
