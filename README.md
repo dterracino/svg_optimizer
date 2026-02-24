@@ -113,12 +113,33 @@ For low-resolution or noisy images, AI upscaling can significantly improve traci
 python -m svg_optimizer lowres.png --upscale
 
 # Use specific upscaler
-python -m svg_optimizer lowres.png --upscale --upscale-method realesrgan  # Best for general images
-python -m svg_optimizer lowres.png --upscale --upscale-method waifu2x     # Best for line art/anime
+python -m svg_optimizer lowres.png --upscale --upscale-method realesrgan  # Best for line art
+python -m svg_optimizer lowres.png --upscale --upscale-method waifu2x     # With noise reduction
 
 # 4x upscaling for very small images
 python -m svg_optimizer tiny_logo.png --upscale --upscale-factor 4
+
+# waifu2x with noise reduction (for noisy/scanned images)
+python -m svg_optimizer noisy.png --upscale --upscale-method waifu2x --upscale-denoise 2
 ```
+
+**Upscaler Details:**
+
+- **Real-ESRGAN** (default) - Uses `RealESRGAN_x4plus_anime_6B` model optimized for line art and illustrations
+  - ~17MB model size
+  - Better edge preservation than general models
+  - Best for clean line art
+  
+- **waifu2x** - Specialized for anime/line art with configurable noise reduction
+  - `--upscale-denoise 0` = No denoising (default)
+  - `--upscale-denoise 1` = Light denoising
+  - `--upscale-denoise 2` = Medium denoising  
+  - `--upscale-denoise 3` = Heavy denoising
+  - Best for noisy scanned artwork
+
+- **Lanczos** - Automatic fallback if AI methods unavailable
+  - Simple PIL-based resampling
+  - No PyTorch required
 
 **Benefits:**
 
@@ -156,10 +177,12 @@ optional arguments:
   --threshold THRESHOLD
                         Override: Set specific threshold value (0.0-1.0)
   --upscale             Enable AI upscaling before tracing (improves edge quality)
-  --upscale-method {realesrgan,waifu2x,auto}
+  --upscale-method {realesrgan,waifu2x,lanczos,auto}
                         AI upscaling method (default: auto)
   --upscale-factor {2,4}
                         Upscaling factor: 2x or 4x (default: 2)
+  --upscale-denoise {0,1,2,3}
+                        Denoise level for waifu2x: 0=none, 1=light, 2=medium, 3=heavy (default: 0)
   -v, --verbose         Enable verbose debug output
   --log-file LOG_FILE   Custom log file path (default: svg_optimizer.log)
 ```
@@ -170,8 +193,12 @@ optional arguments:
 
 If enabled with `--upscale`, enhances the input image before tracing:
 
-- **Real-ESRGAN** - General-purpose AI upscaling with excellent edge enhancement
-- **waifu2x** - Specialized for line art and illustrations
+- **Real-ESRGAN** - Uses anime/line art optimized model (RealESRGAN_x4plus_anime_6B)
+  - Better edge preservation for illustrations
+  - Handles both 2x and 4x scaling
+- **waifu2x** - Specialized for line art with configurable noise reduction (0-3)
+  - Best for noisy scanned artwork
+- **Lanczos** - Simple fallback when AI models unavailable
 - Automatically detects and uses GPU if available
 - Reports GPU name and VRAM information
 
@@ -232,7 +259,12 @@ svg_optimizer/
 │   ├── utils.py            # Unified logging & helper functions
 │   ├── cli.py              # Command-line argument parsing
 │   ├── image_analysis.py   # Noise & background detection
-│   ├── image_upscaler.py   # AI upscaling (Real-ESRGAN, waifu2x)
+│   ├── upscalers/          # AI upscaling package
+│   │   ├── __init__.py     # Upscaler factory & public API
+│   │   ├── base.py         # Base class & GPU detection
+│   │   ├── realesrgan.py   # Real-ESRGAN implementation (anime model)
+│   │   ├── waifu2x.py      # waifu2x with noise reduction
+│   │   └── lanczos.py      # Simple PIL fallback
 │   ├── potrace_tracer.py   # Bitmap→SVG tracing (potracer wrapper)
 │   ├── inkscape_wrapper.py # SVG→PNG rasterization
 │   ├── image_comparer.py   # Binary SSIM quality scoring
@@ -290,8 +322,8 @@ This project follows strict coding principles:
 **Optional (for AI features):**
 
 - **PyTorch** - Deep learning framework (CPU or CUDA)
-- **Real-ESRGAN** - AI upscaling for general images
-- **waifu2x** - AI upscaling specialized for line art
+- **Real-ESRGAN** - AI upscaling for line art (uses anime/illustration model)
+- **waifu2x** - AI upscaling with noise reduction (specialized for line art)
 - **rembg** - AI background removal (future feature)
 - **basicsr** - Basic image restoration toolkit
 
