@@ -31,7 +31,7 @@ from svg_optimizer.potrace_tracer import PotraceTracer
 from svg_optimizer.inkscape_wrapper import InkscapeWrapper
 from svg_optimizer.image_comparer import ImageComparer
 from svg_optimizer.parameter_optimizer import ParameterOptimizer
-from svg_optimizer.image_upscaler import upscale_for_tracing
+from svg_optimizer.upscalers import upscale_for_tracing
 
 
 # ============================================================================
@@ -99,6 +99,7 @@ def main():
                 args.input,
                 method=args.upscale_method,
                 scale=args.upscale_factor,
+                denoise_level=args.upscale_denoise,
                 output_path=None  # Will create temp file
             )
             

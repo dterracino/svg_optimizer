@@ -100,11 +100,25 @@ WINNER_BORDER_WIDTH = 5
 # ============================================================================
 # AI Upscaling Settings
 # ============================================================================
-UPSCALE_DEFAULT_METHOD = 'auto'  # 'realesrgan', 'waifu2x', or 'auto'
+UPSCALE_DEFAULT_METHOD = 'auto'  # 'realesrgan', 'waifu2x', 'lanczos', or 'auto'
 UPSCALE_DEFAULT_FACTOR = 2       # 2x or 4x upscaling
 UPSCALE_TILE_SIZE_CPU = 400      # Tile size for CPU processing (smaller = less RAM)
 UPSCALE_TILE_SIZE_GPU = 0        # 0 = no tiling on GPU (process whole image)
 UPSCALE_USE_FP16_GPU = True      # Use half-precision on GPU for speed/memory
+
+# Real-ESRGAN settings
+UPSCALE_REALESRGAN_MODEL = 'RealESRGAN_x4plus_anime_6B'  # Optimized for line art/anime
+# Note: This model is ~17MB and provides better edge preservation than general models
+
+# waifu2x settings
+UPSCALE_WAIFU2X_DENOISE_DEFAULT = 0  # No denoising by default (0=none, 1=light, 2=med, 3=heavy)
+# Note: User must explicitly set denoise level, or it can be auto-selected from image analysis in future
+
+# Noise-based denoise level thresholds (for auto-configuration)
+UPSCALE_DENOISE_LOW_NOISE = 0      # noise_score < 50: no denoising
+UPSCALE_DENOISE_MODERATE = 1       # noise_score 50-150: light denoising  
+UPSCALE_DENOISE_HIGH = 2           # noise_score > 150: medium denoising
+UPSCALE_DENOISE_EXTREME = 3        # noise_score > 250: heavy denoising (rarely needed)
 
 # ============================================================================
 # Logging Configuration

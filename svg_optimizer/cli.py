@@ -32,6 +32,9 @@ Examples:
   # Upscale with specific method and 4x factor
   %(prog)s logo.png --upscale --upscale-method realesrgan --upscale-factor 4
   
+  # Upscale with custom denoise level (waifu2x only)
+  %(prog)s noisy.png --upscale --upscale-method waifu2x --upscale-denoise 2
+  
   # Skip optimization, just use defaults
   %(prog)s logo.png --skip-optimization
   
@@ -106,6 +109,14 @@ Examples:
         choices=[2, 4],
         default=2,
         help='Upscaling factor: 2x or 4x (default: 2)'
+    )
+    
+    parser.add_argument(
+        '--upscale-denoise',
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=None,
+        help='Denoise level for waifu2x: 0=none, 1=light, 2=medium, 3=heavy (default: 0)'
     )
     
     # Logging options
