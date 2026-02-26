@@ -1,0 +1,22 @@
+# Include important documentation files
+include README.md
+include LICENSE
+include CHANGELOG.md
+include PLANNING.md
+
+# Include requirements files
+include requirements.txt
+include requirements-cpu.txt
+include requirements-gpu.txt
+
+# Exclude unnecessary files
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude .DS_Store
+
+# Exclude test and sample files from distribution
+prune samples
+exclude svg_optimize.py
+exclude ssim_tester.py
+exclude test_*.py

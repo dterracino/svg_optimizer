@@ -1,0 +1,115 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "svg-auto-optimizer"
+version = "0.1.0"
+description = "Automatically optimize bitmap-to-SVG conversion parameters using intelligent binary search and SSIM-based quality scoring"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Dave"}
+]
+keywords = [
+    "svg",
+    "vector",
+    "potrace",
+    "image-processing",
+    "optimization",
+    "tracing",
+    "vectorization",
+    "inkscape",
+    "cad",
+    "ssim"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "Pillow>=10.0.0",
+    "potracer>=0.0.4",
+    "numpy>=1.24.0",
+    "scikit-image>=0.21.0",
+    "opencv-python>=4.8.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "basicsr>=1.4.2",
+    "realesrgan>=0.3.0",
+    "waifu2x-python",
+    "onnxruntime>=1.15.0",
+    "rembg>=2.0.0",
+]
+gpu = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "basicsr>=1.4.2",
+    "realesrgan>=0.3.0",
+    "waifu2x-python",
+    "onnxruntime-gpu>=1.15.0",
+    "rembg>=2.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/svg-auto-optimizer"
+Documentation = "https://github.com/yourusername/svg-auto-optimizer#readme"
+Repository = "https://github.com/yourusername/svg-auto-optimizer"
+"Bug Tracker" = "https://github.com/yourusername/svg-auto-optimizer/issues"
+
+[project.scripts]
+svg-optimizer = "svg_optimizer.__main__:main"
+
+[tool.setuptools]
+packages = ["svg_optimizer", "svg_optimizer.upscalers"]
+
+[tool.setuptools.package-data]
+svg_optimizer = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

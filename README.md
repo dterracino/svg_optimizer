@@ -1,5 +1,9 @@
 # SVG Auto-Optimizer
 
+[![PyPI version](https://badge.fury.io/py/svg-auto-optimizer.svg)](https://badge.fury.io/py/svg-auto-optimizer)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Automatically optimize bitmap-to-SVG conversion parameters using intelligent binary search and SSIM-based quality scoring.
 
 ## Overview
@@ -27,13 +31,40 @@ SVG Auto-Optimizer takes the guesswork out of converting raster images (PNG, JPG
 - Python 3.8+
 - [Inkscape](https://inkscape.org/) installed and accessible from command line
 
-### Setup
+### Install from PyPI (Recommended)
+
+**Basic installation (core features only):**
+
+```bash
+pip install svg-auto-optimizer
+```
+
+**With AI upscaling (CPU):**
+
+```bash
+pip install svg-auto-optimizer[cpu]
+```
+
+**With AI upscaling (GPU - NVIDIA CUDA):**
+
+```bash
+pip install svg-auto-optimizer[gpu]
+```
+
+After installation, the tool is available as `svg-optimizer`:
+
+```bash
+svg-optimizer --help
+svg-optimizer myimage.png
+```
+
+### Install from Source
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/svg-optimizer.git
-cd svg-optimizer
+git clone https://github.com/yourusername/svg-auto-optimizer.git
+cd svg-auto-optimizer
 ```
 
 1. Create and activate a virtual environment:
