@@ -67,7 +67,7 @@ pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://
 
 Note: The `--extra-index-url` is needed because TestPyPI doesn't have all dependencies.
 
-## Publishing to PyPI
+## Uploading to PyPI
 
 Once testing is complete:
 
