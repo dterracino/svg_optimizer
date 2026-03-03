@@ -7,7 +7,7 @@
 # Core image processing
 Pillow>=10.0.0           # Image loading and manipulation
 potracer>=0.0.4          # Pure Python potrace implementation
-numpy>=1.24.0            # Array operations (required by scikit-image)
+numpy>=1.24.0,<2.0.0     # Array operations (required by scikit-image) - pinned to 1.x for compatibility
 
 # Image comparison and analysis
 scikit-image>=0.21.0     # SSIM calculation
@@ -21,6 +21,7 @@ rich>=13.0.0             # Beautiful console output and progress bars
 # which is installed via requirements-cpu.txt or requirements-gpu.txt
 
 # Image upscaling
-basicsr>=1.4.2
-realesrgan>=0.3.0
+basicsr==1.4.2
+facexlib>=0.2.5          # Required by basicsr
+realesrgan==0.3.0
 waifu2x-python

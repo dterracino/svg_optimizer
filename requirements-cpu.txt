@@ -2,8 +2,8 @@
 # Install with: pip install -r requirements-cpu.txt
 
 # PyTorch CPU-only version
-torch>=2.0.0
-torchvision>=0.15.0
+torch>=2.0.0,<2.2.0
+torchvision>=0.15.0,<0.17.0
 
 # Background removal with CPU support
 rembg[cpu]>=2.0.50
