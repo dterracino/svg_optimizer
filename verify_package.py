@@ -58,8 +58,8 @@ def check_pyproject_content():
         if 'name = "svg-auto-optimizer"' not in content:
             issues.append("Package name might be incorrect")
         
-        if 'version = "0.1.0"' not in content:
-            issues.append("Check version number")
+        if not any(line.startswith("version = ") for line in content.splitlines()):
+            issues.append("Missing version number")
         
         if issues:
             print("  ⚠ Issues found:")

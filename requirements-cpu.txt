@@ -1,9 +1,9 @@
 # CPU-only installation (no GPU acceleration)
 # Install with: pip install -r requirements-cpu.txt
 
-# PyTorch CPU-only version
-torch>=2.0.0,<2.2.0
-torchvision>=0.15.0,<0.17.0
+# PyTorch CPU-only version - pinned for basicsr/realesrgan compatibility
+torch==2.1.2
+torchvision==0.16.2
 
 # Background removal with CPU support
 rembg[cpu]>=2.0.50

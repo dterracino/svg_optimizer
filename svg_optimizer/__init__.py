@@ -6,7 +6,7 @@ optimized SVG format by testing multiple parameter combinations and selecting
 the best result based on visual similarity scoring.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Dave"
 
 # Make key utilities easily importable

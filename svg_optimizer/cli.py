@@ -4,13 +4,35 @@ CLI Module - Command-line argument parsing.
 This module handles all CLI argument parsing and help text,
 keeping __main__.py focused on application logic.
 """
+from __future__ import annotations
+
 import argparse
+import math
+import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
+from .svg_border import BORDER_UNITS
 
 
-def parse_arguments():
+def _positive_distance(value: str) -> float:
+    """Parse a finite positive distance in the selected border units."""
+    number = float(value)
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("must be a finite positive number")
+    return number
+
+
+def _smoothing_distance(value: str) -> float:
+    """Parse a finite nonnegative smoothing radius."""
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
+        raise argparse.ArgumentTypeError("must be a finite nonnegative number")
+    return number
+
+
+def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """
     Parse command-line arguments with helpful descriptions.
     
@@ -48,6 +70,9 @@ Examples:
   
   # Verbose debug output
   %(prog)s logo.png --verbose
+
+  # Add a vector-only border to existing SVG artwork
+  %(prog)s logo.svg --border-offset 5 --border-smoothing 10
         """
     )
     
@@ -62,14 +87,14 @@ Examples:
     parser.add_argument(
         'input',
         type=Path,
-        help='Input raster image (PNG, JPG, etc.)'
+        help='Input raster image, or existing SVG with --border or --border-offset'
     )
     
     # Output options
     parser.add_argument(
         '-o', '--output',
         type=Path,
-        help='Output SVG file path (default: input filename with .svg extension)'
+        help='Output SVG path (default: input_border_TYPE_SIZEUNIT.svg with border, input.svg otherwise)'
     )
     
     parser.add_argument(
@@ -128,6 +153,46 @@ Examples:
         help='Denoise level for waifu2x: 0=none, 1=light, 2=medium, 3=heavy (default: 0)'
     )
     
+    border = parser.add_argument_group("Vector border (distances in --border-units)")
+    border.add_argument(
+        "--border-type", "--border-style", choices=("outline", "frame"),
+        help="Border shape: outline (default), or bounding-box frame"
+    )
+    border.add_argument(
+        "--corner-radius", type=_smoothing_distance,
+        help="Frame centerline corner radius in --border-units (default: 0, square)"
+    )
+    border.add_argument(
+        "--border", action="store_true",
+        help="Add a vector border with scale-aware defaults for omitted distances"
+    )
+    border.add_argument(
+        "--border-units", choices=BORDER_UNITS,
+        help="Units for all explicit border distances; percent uses the shorter canvas side "
+             "(default: svg)"
+    )
+    border.add_argument(
+        "--border-offset", type=_positive_distance,
+        help="Add an enclosing vector border with this minimum clearance from artwork"
+    )
+    border.add_argument(
+        "--border-smoothing", type=_smoothing_distance,
+        help="Gaussian perimeter averaging distance; 0 keeps a tight cubic fit "
+             "(default: automatic SVG scale)"
+    )
+    border.add_argument(
+        "--border-tolerance", type=_positive_distance,
+        help="Maximum vector curve-flattening error (default: automatic SVG scale)"
+    )
+    border.add_argument(
+        "--border-width", type=_positive_distance,
+        help="Border stroke width (default: automatic SVG scale)"
+    )
+    border.add_argument(
+        "--border-color",
+        help="Border stroke color: SVG color name or #RGB/#RRGGBB (default: black)"
+    )
+
     # Logging options
     parser.add_argument(
         '-v', '--verbose',
@@ -141,4 +206,38 @@ Examples:
         help='Custom log file path (default: svg_optimizer.log)'
     )
     
-    return parser.parse_args()
+    arguments = list(argv) if argv is not None else sys.argv[1:]
+    args = parser.parse_args(arguments)
+    border_enabled = args.border or args.border_offset is not None
+    if not border_enabled and any(
+        value is not None for value in
+        (args.border_smoothing, args.border_tolerance, args.border_width, args.border_color,
+         args.border_units, args.border_type, args.corner_radius)
+    ):
+        parser.error("border styling options require --border or --border-offset")
+    if args.input.suffix.lower() == ".svg":
+        if not border_enabled:
+            parser.error("existing SVG input requires --border or --border-offset")
+        raster_options = (
+            "--upscale", "--upscale-method", "--upscale-factor", "--upscale-denoise",
+            "--threshold", "--skip-optimization", "--comparison", "-c",
+        )
+        if args.comparison is not None or any(
+            option.startswith(argument.split("=", 1)[0])
+            for argument in arguments if argument.startswith("--") and argument != "--"
+            for option in raster_options
+        ):
+            parser.error("raster tracing and comparison options cannot be used with SVG input")
+    if args.output and args.output.suffix.lower() != ".svg" and border_enabled:
+        parser.error("border output must have an .svg extension")
+    if args.border_color is None:
+        args.border_color = "black"
+    if args.border_units is None:
+        args.border_units = "svg"
+    if args.border_type is None:
+        args.border_type = "outline"
+    if args.corner_radius is not None and args.border_type != "frame":
+        parser.error("--corner-radius requires --border-type frame")
+    if args.border_type == "frame" and args.border_smoothing is not None:
+        parser.error("--border-smoothing applies only to outline borders; use --corner-radius")
+    return args

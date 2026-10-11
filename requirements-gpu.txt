@@ -5,10 +5,11 @@
 # - NVIDIA GPU with CUDA support
 # Using CUDA 12.1 for best compatibility with rembg and Real-ESRGAN
 
-# PyTorch with CUDA 12.1 (best compatibility)
+# PyTorch with CUDA 12.1 - pinned versions for basicsr/realesrgan compatibility
+# Note: Using --extra-index-url to access PyTorch archive while still using PyPI for other packages
 --extra-index-url https://download.pytorch.org/whl/cu121
-torch>=2.0.0,<2.2.0
-torchvision>=0.15.0,<0.17.0
+torch==2.1.2+cu121
+torchvision==0.16.2+cu121
 
 # Background removal with GPU support
 rembg[gpu]>=2.0.50

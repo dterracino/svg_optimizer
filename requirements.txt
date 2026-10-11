@@ -11,7 +11,11 @@ numpy>=1.24.0,<2.0.0     # Array operations (required by scikit-image) - pinned 
 
 # Image comparison and analysis
 scikit-image>=0.21.0     # SSIM calculation
-opencv-python>=4.8.0     # Noise analysis (cv2)
+opencv-contrib-python-headless>=4.8.0  # Contrib modules without GUI dependencies
+
+# Vector-only SVG border generation
+svgelements>=1.9.6      # SVG shapes, curves, and transforms
+shapely>=2.0.7,<3       # Vector offsets and enclosing geometry
 
 # Console UI and logging
 rich>=13.0.0             # Beautiful console output and progress bars
@@ -21,7 +25,8 @@ rich>=13.0.0             # Beautiful console output and progress bars
 # which is installed via requirements-cpu.txt or requirements-gpu.txt
 
 # Image upscaling
-basicsr==1.4.2
+basicsr>=1.4.2
 facexlib>=0.2.5          # Required by basicsr
-realesrgan==0.3.0
-waifu2x-python
+realesrgan>=0.3.0
+# Note: waifu2x uses external binary (tools/waifu2x-ncnn-vulkan/)
+#       Download from: https://github.com/nihui/waifu2x-ncnn-vulkan/releases

@@ -1,0 +1,50 @@
+# waifu2x-ncnn-vulkan Binary
+
+This folder should contain the waifu2x-ncnn-vulkan executable and models.
+
+## Download
+
+Get the latest release for your platform:
+<https://github.com/nihui/waifu2x-ncnn-vulkan/releases>
+
+- **Windows:** `waifu2x-ncnn-vulkan-YYYYMMDD-windows.zip`
+- **Linux:** `waifu2x-ncnn-vulkan-YYYYMMDD-ubuntu.zip`
+- **macOS:** `waifu2x-ncnn-vulkan-YYYYMMDD-macos.zip`
+
+## Installation
+
+Extract the downloaded archive into this folder. The structure should look like:
+
+```
+tools/
+  waifu2x-ncnn-vulkan/
+    waifu2x-ncnn-vulkan.exe   (or waifu2x-ncnn-vulkan on Linux/Mac)
+    models-cunet/
+    models-upconv_7_anime_style_art_rgb/
+    models-upconv_7_photo/
+    vcomp140.dll              (Windows only)
+    LICENSE
+    README.md
+```
+
+## Alternative: System PATH
+
+Instead of placing the files here, you can:
+
+1. Extract the binary anywhere on your system
+2. Add that folder to your system PATH environment variable
+3. The svg-optimizer tool will automatically find it
+
+## Usage
+
+Once installed, waifu2x will be automatically detected and available as an upscaling option:
+
+```bash
+svg-optimizer image.png --upscale --upscale-method waifu2x
+```
+
+## Notes
+
+- The binary files are excluded from git (see .gitignore)
+- waifu2x is optional. Real-ESRGAN and Lanczos upscalers work without it
+- waifu2x specializes in line art with configurable noise reduction

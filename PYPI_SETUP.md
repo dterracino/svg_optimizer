@@ -175,7 +175,8 @@ svg-auto-optimizer/
    - Dev: Development tools (testing, linting)
 
 4. **Requirements files**: Fixed package names
-   - Changed `waifu2x_python` → `waifu2x-ncnn-vulkan-python`
+   - Removed `waifu2x-ncnn-vulkan-python` (uses native binary instead)
+   - See INSTALL.md for waifu2x binary installation
 
 ## 🐛 Troubleshooting
 

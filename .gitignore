@@ -137,3 +137,10 @@ Thumbs.db
 svg_optimizer.log
 *_comparison.png
 *_upscaled.png
+
+# External binaries (users should download these separately)
+tools/waifu2x-ncnn-vulkan/*.exe
+tools/waifu2x-ncnn-vulkan/*.dll
+tools/waifu2x-ncnn-vulkan/models-*/
+tools/waifu2x-ncnn-vulkan/LICENSE
+tools/waifu2x-ncnn-vulkan/README.md

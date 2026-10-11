@@ -357,7 +357,7 @@ LABEL_FONT_SIZE = 14
 - `potracer` - Pure Python Potrace implementation for bitmap tracing
 - `Pillow` - Image manipulation and loading
 - `scikit-image` - SSIM calculation
-- `opencv-python` (cv2) - Noise analysis
+- `opencv-contrib-python-headless` (cv2) - Noise analysis and contrib modules without GUI dependencies
 - `rich` - Console UI and progress bars
 - `numpy` - Array operations (via scikit-image and cv2)
 

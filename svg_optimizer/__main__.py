@@ -15,8 +15,6 @@ from pathlib import Path
 from typing import Optional
 import time
 
-from PIL import Image
-
 # Import all our beautiful modules!
 from svg_optimizer import (
     log_info, log_error, log_success, log_section, log_warning, log_debug
@@ -26,17 +24,27 @@ from svg_optimizer.cli import parse_arguments
 from svg_optimizer.utils import (
     validate_input_file, validate_output_path, setup_logging
 )
-from svg_optimizer.image_analysis import analyze_image
-from svg_optimizer.potrace_tracer import PotraceTracer
-from svg_optimizer.inkscape_wrapper import InkscapeWrapper
-from svg_optimizer.image_comparer import ImageComparer
-from svg_optimizer.parameter_optimizer import ParameterOptimizer
-from svg_optimizer.upscalers import upscale_for_tracing
+from svg_optimizer.svg_border import BorderGenerationError, SVGBorderGenerator
 
 
 # ============================================================================
 # Main Application Logic
 # ============================================================================
+
+def _save_svg_content(
+    content: str, output: Path, border: Optional[SVGBorderGenerator],
+    automatic_name_source: Optional[Path] = None,
+) -> Path:
+    """Apply the optional vector border before saving traced artwork."""
+    if border is not None:
+        if automatic_name_source is not None:
+            output = border.default_output(automatic_name_source, content)
+            if not validate_output_path(output):
+                raise OSError(f"Cannot write border output: {output}")
+        content = border.add_to_svg(content)
+    output.write_text(content, encoding="utf-8")
+    return output
+
 
 def main():
     """Main application entry point."""
@@ -57,19 +65,71 @@ def main():
     if not validate_input_file(args.input):
         log_error("Invalid input file, exiting")
         return 1
+
+    border = None
+    if args.border or args.border_offset is not None:
+        try:
+            border = SVGBorderGenerator(
+                offset=args.border_offset,
+                smoothing=args.border_smoothing,
+                tolerance=args.border_tolerance,
+                stroke_width=args.border_width,
+                color=args.border_color,
+                show_progress=True,
+                units=args.border_units,
+                border_type=args.border_type,
+                corner_radius=args.corner_radius,
+            )
+        except BorderGenerationError as error:
+            log_error(str(error))
+            return 1
     
     # Determine output paths
     if args.output:
         output_svg = args.output
+    elif args.input.suffix.lower() == ".svg":
+        if border is None:
+            log_error("SVG input requires --border or --border-offset")
+            return 1
+        try:
+            output_svg = border.default_output(
+                args.input, args.input.read_text(encoding="utf-8-sig")
+            )
+        except (BorderGenerationError, OSError, UnicodeError) as error:
+            log_error(f"Cannot determine border output: {error}")
+            return 1
     else:
         # Default: same name as input, but .svg
         output_svg = args.input.with_suffix(config.DEFAULT_OUTPUT_SUFFIX)
     
+    if args.input.suffix.lower() == ".svg" and args.input.resolve() == output_svg.resolve():
+        log_error("Border output must differ from the input SVG")
+        return 1
     if not validate_output_path(output_svg):
         log_error("Cannot write to output location, exiting")
         return 1
     
     log_info(f"Output: {output_svg}")
+
+    if args.input.suffix.lower() == ".svg":
+        if border is None:
+            log_error("SVG input requires --border-offset")
+            return 1
+        try:
+            border.generate(args.input, output_svg)
+        except (BorderGenerationError, OSError) as error:
+            log_error(f"Border generation failed: {error}")
+            return 1
+        log_success(f"Saved bordered SVG: {output_svg}")
+        return 0
+
+    from PIL import Image
+    from svg_optimizer.image_analysis import analyze_image
+    from svg_optimizer.potrace_tracer import PotraceTracer
+    from svg_optimizer.inkscape_wrapper import InkscapeWrapper
+    from svg_optimizer.image_comparer import ImageComparer
+    from svg_optimizer.parameter_optimizer import ParameterOptimizer
+    from svg_optimizer.upscalers import upscale_for_tracing
     
     # Comparison sheet path
     comparison_path = None
@@ -202,8 +262,14 @@ def main():
             log_info("Skipping optimization as requested")
         
         # Save the default SVG
-        with open(output_svg, 'w', encoding='utf-8') as f:
-            f.write(svg_content_default)
+        try:
+            output_svg = _save_svg_content(
+                svg_content_default, output_svg, border,
+                args.input if border is not None and args.output is None else None,
+            )
+        except (BorderGenerationError, OSError) as error:
+            log_error(f"Failed to save final SVG: {error}")
+            return 1
         
         # Cleanup upscaled temp file if it exists
         if upscaled_temp_file and upscaled_temp_file.exists():
@@ -290,14 +356,35 @@ def main():
     
     log_section("Generating Final SVG")
     
-    success = tracer.trace_to_svg(
-        working_input,
-        output_svg,
-        blacklevel=result.best_threshold,
-        turdsize=result.turdsize,
-        alphamax=result.best_smooth,
-        opttolerance=result.opttolerance
-    )
+    if border is None:
+        success = tracer.trace_to_svg(
+            working_input,
+            output_svg,
+            blacklevel=result.best_threshold,
+            turdsize=result.turdsize,
+            alphamax=result.best_smooth,
+            opttolerance=result.opttolerance
+        )
+    else:
+        final_svg = tracer.trace_to_svg_string(
+            working_input,
+            blacklevel=result.best_threshold,
+            turdsize=result.turdsize,
+            alphamax=result.best_smooth,
+            opttolerance=result.opttolerance
+        )
+        if final_svg is None:
+            log_error("Failed to trace final SVG")
+            return 1
+        try:
+            output_svg = _save_svg_content(
+                final_svg, output_svg, border,
+                args.input if args.output is None else None,
+            )
+        except (BorderGenerationError, OSError) as error:
+            log_error(f"Failed to save final SVG: {error}")
+            return 1
+        success = True
     
     if not success:
         log_error("Failed to generate final SVG")

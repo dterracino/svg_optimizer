@@ -1,10 +1,13 @@
 # SVG Auto-Optimizer
 
 [![PyPI version](https://badge.fury.io/py/svg-auto-optimizer.svg)](https://badge.fury.io/py/svg-auto-optimizer)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Automatically optimize bitmap-to-SVG conversion parameters using intelligent binary search and SSIM-based quality scoring.
+Automatically optimize bitmap-to-SVG conversion parameters and add smooth vector outlines or rounded frames to existing SVG artwork.
+
+**Version 0.2.0:** vector-only borders, Gaussian outline smoothing, rounded frames, physical and percentage units, automatic distance defaults, and progress reporting.
+See [CHANGELOG.md](CHANGELOG.md) for release details and compatibility notes.
 
 ## Overview
 
@@ -17,6 +20,9 @@ SVG Auto-Optimizer takes the guesswork out of converting raster images (PNG, JPG
 - 🚀 **Fast convergence** - Typically 14-18 evaluations vs 20-30+ for grid search
 - 📸 **Visual proof sheets** - See all tested combinations in a comparison grid
 - ⏭️ **Bail-early** - Skips optimization if defaults already score 0.95+
+- **Vector borders** - Gaussian-smoothed silhouette outlines or rectangular frames with rounded corners, without rasterization
+- **Convenient border distances** - Millimeters, inches, percentages, or SVG units, with scale-aware defaults
+- **Safe border generation** - Minimum-clearance checks, early curve-budget errors, and visible generation progress
 
 **Perfect for:**
 
@@ -28,8 +34,10 @@ SVG Auto-Optimizer takes the guesswork out of converting raster images (PNG, JPG
 
 ### Prerequisites
 
-- Python 3.8+
-- [Inkscape](https://inkscape.org/) installed and accessible from command line
+- Python 3.11 (the project's target runtime)
+- [Inkscape](https://inkscape.org/) installed and accessible from command line for bitmap tracing and comparison (not required for existing-SVG border mode)
+
+This project is built for Python 3.11. Use Python 3.11 when creating your virtual environment: the pinned PyTorch 2.1.2 and torchvision 0.16.2 dependencies in the CPU/GPU requirements do not provide Windows wheels for Python 3.12 or newer.
 
 ### Install from PyPI (Recommended)
 
@@ -69,11 +77,18 @@ cd svg-auto-optimizer
 
 1. Create and activate a virtual environment:
 
+**Windows PowerShell:**
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-# or
-source .venv/bin/activate  # Linux/Mac
+python3.11 -m venv .venv
+source .venv/bin/activate
 ```
 
 1. Install dependencies:
@@ -97,6 +112,8 @@ The GPU version enables:
 The CPU version includes the same features but runs on CPU only (slower but works everywhere).
 
 **Core tracing features work with either installation.**
+
+When switching an existing environment, uninstall `opencv-python` first (`pip uninstall opencv-python`) so only one OpenCV wheel provides the `cv2` module.
 
 ## Usage
 
@@ -134,6 +151,144 @@ python -m svg_optimizer logo.png --no-comparison
 # Verbose debug output
 python -m svg_optimizer logo.png --verbose
 ```
+
+### Vector-Only SVG Borders
+
+Add a border to an existing SVG without rendering it to pixels or retracing the original artwork:
+
+```powershell
+# Automatically choose distances from the SVG's coordinate scale
+python -m svg_optimizer samples\jack.svg --border
+
+# Wide, smooth border using millimeters instead of large SVG coordinates
+python -m svg_optimizer samples\jack.svg --border-units mm --border-offset 5 --border-smoothing 10 --border-width 0.2
+
+# Percentages of the shorter canvas side: 2% offset, 5% smoothing
+python -m svg_optimizer samples\jack.svg --border-units percent --border-offset 2 --border-smoothing 5
+
+# Rectangular frame around visible artwork, with 3 mm rounded corners
+python -m svg_optimizer samples\jack.svg --border-type frame --border-units mm --border-offset 5 --corner-radius 3 --border-width 0.2
+
+# Large rounded corners: radius is independent of the minimum clearance
+python -m svg_optimizer samples\jack.svg --border-type frame --border-units mm --border-offset 10 --corner-radius 15 --border-width 0.2
+
+python -m svg_optimizer logo.svg --border-offset 5 --border-smoothing 10
+
+# Specify border appearance and output
+python -m svg_optimizer logo.svg --border-offset 5 --border-smoothing 10 --border-width 1 --border-color "#0066cc" --output logo_framed.svg
+
+# Use a larger smoothing radius for high-coordinate-resolution artwork
+python -m svg_optimizer samples\portal-eye.svg --border-offset 30 --border-smoothing 100 --border-tolerance 0.25
+
+# Also add a vector border to the result of normal bitmap tracing
+python -m svg_optimizer logo.png --border-offset 5 --border-smoothing 10
+```
+
+Border outputs default to `{filename}_border_{type}_{offset}{unit}.svg`, for both existing SVGs and traced raster inputs.
+For example, the 5 mm frame command above saves `jack_border_frame_5mm.svg`; the 10 mm frame saves `jack_border_frame_10mm.svg`, and a 2% outline saves `jack_border_outline_2percent.svg`.
+Automatic offsets are resolved before naming, using the selected unit.
+An explicit `--output` overrides this naming; the source SVG cannot be overwritten.
+SVG border mode does not load the raster tracing pipeline, invoke Inkscape, or generate a comparison sheet.
+CLI border generation shows the current stage, an activity spinner, and elapsed time for that stage.
+Sampling and fitted-curve validation show measured counts and stage percentages; artwork flattening reports processed source segments.
+Curve fitting reports each attempt (up to six), so outward refitting is visible.
+Offsetting, unioning, and buffer-based smoothing are indivisible geometry operations: they show activity rather than a fabricated percentage or ETA.
+Gaussian perimeter averaging reports processed sample counts.
+Stage changes are also logged, including when output writing starts; a saved message appears only after the write succeeds.
+The spinner indicates an active progress display, not a guarantee that a geometry operation is making forward progress.
+Library calls remain quiet by default; use `SVGBorderGenerator(..., show_progress=True)` to enable the same display.
+Raster inputs retain the normal tracing workflow; the border is added only to the final SVG, after scoring and optimization.
+Reported SSIM scores and comparison sheets describe the artwork **before** the border is added.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--border` | Disabled | Enable border generation with automatic distances for any omitted options. |
+| `--border-type`, `--border-style` | `outline` | `outline` follows the smoothed outer silhouette; `frame` draws a bounding-box border. |
+| `--corner-radius` | `0` | Frame centerline corner radius in the selected units. Zero makes square corners. Not valid for outline borders. |
+| `--border-units` | `svg` | Units for all explicit distances: `svg`, `mm`, `cm`, `in`, `px`, `pt`, `pc`, or `percent`. |
+| `--border-offset` | Automatic with `--border` | Enable the border and set its minimum clearance from the artwork to the border stroke's inner edge. Must be positive. |
+| `--border-smoothing` | Automatic (outline only) | Gaussian standard deviation along the outline perimeter, also used for gap bridging and notch closing. Larger values suppress broader details; `0` skips Gaussian averaging and broad smoothing, but retains a tight cubic fit and connects separate pieces. Rejected for frames. |
+| `--border-tolerance` | Automatic | Maximum vector curve-flattening error for artwork processing and clearance verification. Smaller values preserve more detail and require more processing. |
+| `--border-width` | Automatic | Positive border stroke width. |
+| `--border-color` | `black` | Visible color name or quoted `#RGB`/`#RRGGBB` value. |
+
+**Distances default to root SVG user coordinates.** Use `--border-units` to specify physical distances or percentages instead.
+For example, a `viewBox="0 0 100 100"` displayed at `width="50mm"` has a horizontal scale of 0.5 mm per user unit.
+
+The chosen unit applies to every explicit offset, smoothing, tolerance, stroke-width, and corner-radius value.
+With `--border-units percent`, the number `5` means 5% of the **shorter original viewBox/canvas side**, not 5% of the artwork bounds.
+Use plain numbers with the flag, not suffixes such as `5mm` or `5%`.
+Omitted distances retain their automatic defaults in SVG coordinates; they are not reinterpreted in the chosen unit.
+Conversions happen before preflight and geometry processing, and progress displays the resolved SVG-unit distances.
+
+Physical units follow the original root dimensions and `preserveAspectRatio` scaling, with 96 CSS pixels per inch.
+They require absolute `width` and `height` when a viewBox is present; missing dimensions are rejected instead of assuming a physical size.
+With no viewBox, root user coordinates already correspond to CSS pixels.
+Non-uniform `preserveAspectRatio="none"` scaling is rejected for physical units because one circular offset cannot have the same physical size along both axes.
+Use `svg` or `percent` in those cases. Pixel units are CSS pixels, not raster-image pixels, and external browser/CSS resizing can change the displayed physical size.
+The source artwork coordinates are never rescaled.
+
+CLI automatic distances use `s = min(viewBox width, viewBox height) / 210` (or the resolved viewport without a viewBox).
+The defaults are offset `s`, smoothing `2*s`, tolerance `0.005*s`, and stroke width `0.1*s`.
+For `jack.svg` this selects `100`, `200`, `0.5`, and `10`, respectively.
+These are proportional starting values, not automatic physical-unit conversion or a guarantee that every SVG will fit.
+Resolved values are displayed before geometry processing; explicit options, including zero smoothing, are never replaced.
+Library numeric defaults remain unchanged; pass `None` for individual distances to request scale-aware resolution, and `units="mm"` or `units="percent"` to convert explicit distances.
+
+For outline borders, a preflight checks a lower bound on the required cubic count using visible artwork endpoints before expensive curve flattening, offsetting, or smoothing.
+Clearly excessive settings fail with the estimated minimum count, the 10,000-curve limit, and a suggested minimum smoothing value.
+Passing preflight is not a guarantee: concavities, curves, and later outward corrections can require more segments, so the final budget and clearance checks remain in place.
+
+**Frame borders** use the visible filled artwork's bounding box (including transforms and disconnected pieces), not the root canvas.
+The box is expanded by the offset plus half the stroke width and a conservative curve-approximation margin.
+Frames are SVG rectangles with native rounded corners; they skip outline bridging, smoothing, spline fitting, and the cubic-count budget.
+`--border-smoothing` is rejected in frame mode; use `--corner-radius` instead.
+Rounded corners are checked against the actual artwork, not imaginary filled corners of its bounding box.
+Large radii are allowed when the empty corner regions provide enough room for the requested clearance.
+There is no rule limiting the radius to the offset: the `jack.svg` example with a 10 mm offset and 15 mm radius fits without additional frame expansion.
+If necessary, the frame expands equally on all four sides by the smallest safe amount found within the geometry tolerance, while keeping the requested radius unchanged.
+This also ensures the frame dimensions can accommodate the radius without SVG's automatic radius clamping.
+Progress reports clearance checking and the expansion search; any additional expansion is logged in the selected units.
+The offset remains a minimum clearance, so expanded frames may have more space along straight sides.
+The canvas expands to include the frame's full stroke. Artwork and supported-input restrictions remain unchanged.
+Library callers can select `border_type="frame"` and `corner_radius=3`.
+
+The default **outline** mode of [SVGBorderGenerator](svg_optimizer/svg_border.py) uses `svgelements` to resolve filled shapes and transforms and Shapely to construct vector geometry.
+It connects disconnected pieces, smooths small recesses, and keeps all supported artwork enclosed with at least the requested clearance.
+Broad recesses can remain; this is not a convex-hull or rectangular frame.
+A distant speck must still influence the border because it cannot be left outside.
+Larger smoothing values can bridge larger recesses and increase the distance beyond the requested minimum.
+
+The original artwork's paths and shape attributes are retained.
+The outline border is a closed **cubic Bezier path**, fitted from evenly spaced perimeter samples using a periodic cubic B-spline.
+Its tangent and second derivative remain continuous at every join, including the closing seam, so curved artwork does not acquire polygon corners.
+Coarse polygon simplification is not used; larger smoothing radii average small outline irregularities before the final curves are written.
+Uniform perimeter samples are averaged with Gaussian weights `exp(-distance^2 / (2*smoothing^2))`, normalized to sum to one and truncated at four standard deviations.
+The averaging wraps around the closed perimeter, including the closing seam, and suppresses both small outward bumps and inward notches before spline fitting.
+Increasing smoothing widens this averaging neighborhood, simplifying small-scale details while retaining broader features where compatible with enclosure.
+Strong smoothing can also soften large recesses; it does not guarantee a strictly simpler shape for every possible input because all artwork and minimum clearance must remain protected.
+The existing vector closing step remains for gap and notch handling.
+The original artwork remains unchanged, and border generation uses no rasterization or additional dependencies beyond the vector libraries above.
+This remains an approximate vector offset, not an exact analytic Bezier offset.
+Conservative margins compensate for approximation error.
+The **fitted cubic curve**, not just its preliminary polygon, is checked for enclosure and minimum clearance using a finer vector approximation.
+If fitting pulls the border inward, the enclosing outline is expanded and refitted while preserving smooth joins.
+Unsafe fits fail explicitly rather than falling back to straight segments.
+The SVG canvas expands to include the curves' control-point bounds and full stroke while preserving the artwork's coordinate scale.
+XML formatting and namespace prefixes may change when the document is saved.
+
+**Supported SVG inputs:** filled paths (including cubic/quadratic curves and arcs), rectangles, rounded rectangles, circles, ellipses, polygons, filled polylines, and group/shape transforms.
+Holes do not receive inner borders.
+Documents must be UTF-8 encoded and need a valid `viewBox` or absolute width and height; percentage dimensions are unsupported.
+The root must use the SVG namespace. Root-level transforms are unsupported; place transformed artwork in a group instead.
+Rendering hints (`shape-rendering`, `text-rendering`, `image-rendering`, and `clip-rule`) are accepted and preserved.
+Embedded stylesheets may contain simple `.class { ... }` rules using supported presentation properties, including fills and opacity.
+Rules are resolved in source order on a geometry-only copy, with inline styles taking precedence; the saved artwork keeps its original classes and stylesheets.
+Complex selectors, conditional stylesheets, external CSS, `!important`, and unresolved classes are rejected explicitly.
+Stroked artwork, text, embedded images, `<use>` references, nested SVGs, clipping, masks, filters, and paint servers are rejected explicitly.
+Convert text and strokes to filled paths and flatten unsupported effects before using border mode.
+Border styling options require `--border` or `--border-offset`; raster-only options cannot be combined with existing SVG input.
+An SVG already containing the generated `svg-optimizer-border` element is rejected rather than given a second border; use the original artwork when changing border settings.
 
 ### AI Upscaling
 
@@ -191,16 +346,21 @@ usage: python -m svg_optimizer [-h] [-o OUTPUT] [-c COMPARISON] [--no-comparison
                                [--skip-optimization] [--threshold THRESHOLD]
                                [--upscale] [--upscale-method {realesrgan,waifu2x,auto}]
                                [--upscale-factor {2,4}]
+                               [--border] [--border-offset BORDER_OFFSET]
+                               [--border-units {svg,mm,cm,in,px,pt,pc,percent}]
+                               [--border-smoothing BORDER_SMOOTHING]
+                               [--border-tolerance BORDER_TOLERANCE]
+                               [--border-width BORDER_WIDTH] [--border-color BORDER_COLOR]
                                [-v] [--log-file LOG_FILE]
                                input
 
 positional arguments:
-  input                 Input raster image (PNG, JPG, etc.)
+  input                 Input raster image, or existing SVG with --border or --border-offset
 
 optional arguments:
   -h, --help            show this help message and exit
   -o OUTPUT, --output OUTPUT
-                        Output SVG file path (default: input.svg)
+                        Output SVG file path (default: input_border_TYPE_SIZEUNIT.svg with border, input.svg otherwise)
   -c COMPARISON, --comparison COMPARISON
                         Comparison sheet PNG path (default: input_comparison.png)
   --no-comparison       Skip generating the visual comparison sheet
@@ -216,6 +376,25 @@ optional arguments:
                         Denoise level for waifu2x: 0=none, 1=light, 2=medium, 3=heavy (default: 0)
   -v, --verbose         Enable verbose debug output
   --log-file LOG_FILE   Custom log file path (default: svg_optimizer.log)
+
+vector border (distances in --border-units):
+  --border-type {outline,frame}, --border-style {outline,frame}
+                        Border type (default: outline)
+  --corner-radius CORNER_RADIUS
+                        Frame centerline corner radius (default: 0)
+  --border              Enable border with automatic distances
+  --border-units {svg,mm,cm,in,px,pt,pc,percent}
+                        Units for explicit distances (default: svg)
+  --border-offset BORDER_OFFSET
+                        Enable border with this minimum clearance
+  --border-smoothing BORDER_SMOOTHING
+                        Smoothing radius (default: automatic SVG scale; 0 keeps a tight cubic fit)
+  --border-tolerance BORDER_TOLERANCE
+                        Maximum vector curve-flattening error (default: automatic SVG scale)
+  --border-width BORDER_WIDTH
+                        Border stroke width (default: automatic SVG scale)
+  --border-color BORDER_COLOR
+                        Border stroke color (default: black)
 ```
 
 ## How It Works
@@ -347,7 +526,9 @@ This project follows strict coding principles:
 - **potracer** - Pure Python potrace implementation (bitmap tracing)
 - **NumPy** - Array operations
 - **scikit-image** - SSIM calculation
-- **OpenCV** - Noise analysis
+- **opencv-contrib-python-headless** - Noise analysis and contrib modules without GUI dependencies
+- **svgelements** - SVG vector shape, curve, and transform parsing
+- **Shapely** - Vector border offsets, smoothing, and enclosure checks
 - **Rich** - Beautiful console output with progress bars
 
 **Optional (for AI features):**

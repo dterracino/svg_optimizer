@@ -1,0 +1,48 @@
+# CLAUDE.md
+
+**Last updated: 2026-10-09.**
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Keep these rules aligned with `AGENTS.md` so every agent follows the same engineering standards.
+
+## Token-Efficient Reasoning
+
+Minimize token usage during planning, analysis, and intermediate reasoning without reducing correctness.
+
+- Think concisely. Prefer short technical notes, symbols, filenames, identifiers, and direct conclusions over explanatory prose.
+- Do not narrate obvious actions or restate the task.
+- Do not explain routine reasoning to yourself.
+- Avoid conversational language, filler, transitions, rhetorical questions, and repeated conclusions during analysis.
+- Keep plans minimal. Include only steps that materially affect implementation.
+- Collapse straightforward reasoning into compact forms such as `cause -> effect -> action`.
+- Track only information needed for the current task. Do not repeatedly summarize established context.
+- When evaluating alternatives, record only meaningful tradeoffs and the selected approach.
+- Do not generate lengthy speculative branches. Investigate the most likely path first and expand only when evidence requires it.
+- Prefer concrete evidence from code, types, tests, documentation, logs, and tool output over speculative prose.
+- After resolving a question, do not continue reasoning about it unless new information invalidates the conclusion.
+- Avoid re-deriving conclusions that are already established in the current context.
+- Spend additional reasoning tokens only where ambiguity, debugging difficulty, architectural impact, safety, or correctness justifies them.
+- Preserve necessary verification, edge-case analysis, error checking, and architectural reasoning.
+- Token efficiency must never reduce correctness, robustness, or required validation.
+
+Intermediate reasoning should resemble compact engineering notes, not an explanation written for a reader.
+
+## Efficient Tool Use
+
+Use tools deliberately and minimize intermediate commentary.
+
+- Do not describe a routine tool call before making it unless the explanation is necessary.
+- Inspect the smallest relevant scope first and expand only when needed.
+- Avoid repeatedly reading files, symbols, logs, or sections already inspected unless they may have changed or additional context is required.
+- When the relevant filename, symbol, or location is already known, go directly to it instead of performing broad exploratory searches.
+- Batch related searches, inspections, reads, or edits when practical.
+- Prefer targeted searches over large repository-wide reads.
+- When tool output is large, extract only the information relevant to the current task. Do not paraphrase or restate the entire output in intermediate reasoning.
+- Reuse facts obtained from previous tool calls instead of retrieving them again unnecessarily.
+- Do not use additional tools merely to confirm information that is already definitive.
+- Perform verification that materially affects correctness, but avoid redundant verification.
+- After an edit, run the smallest useful validation first. Expand testing only when the change, failure mode, or project rules require it.
+- Avoid exploratory edits. Understand the relevant code path before modifying it.
+- Keep tool-related reasoning focused on `what is needed -> what was found -> what changes`.
+
+Tool efficiency must not come at the expense of understanding the affected code, validating changes, or catching regressions.

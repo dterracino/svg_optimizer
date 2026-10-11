@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svg-auto-optimizer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Automatically optimize bitmap-to-SVG conversion parameters using intelligent binary search and SSIM-based quality scoring"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -45,26 +45,26 @@ dependencies = [
     "potracer>=0.0.4",
     "numpy>=1.24.0",
     "scikit-image>=0.21.0",
-    "opencv-python>=4.8.0",
+    "opencv-contrib-python-headless>=4.8.0",
+    "svgelements>=1.9.6",
+    "shapely>=2.0.7,<3",
     "rich>=13.0.0",
 ]
 
 [project.optional-dependencies]
 cpu = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
+    "torch==2.1.2",
+    "torchvision==0.16.2",
     "basicsr>=1.4.2",
     "realesrgan>=0.3.0",
-    "waifu2x-python",
     "onnxruntime>=1.15.0",
     "rembg>=2.0.0",
 ]
 gpu = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
+    "torch==2.1.2",
+    "torchvision==0.16.2",
     "basicsr>=1.4.2",
     "realesrgan>=0.3.0",
-    "waifu2x-python",
     "onnxruntime-gpu>=1.15.0",
     "rembg>=2.0.0",
 ]
